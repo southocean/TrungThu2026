@@ -249,7 +249,7 @@
   // The site's jade rabbit keeps the slideshow company along the bottom of the stage, carrying on
   // from slide to slide. It hops in the first time the show plays, freezes on pause and resumes
   // with play. Just to watch.
-  window.mountRabbit?.(stage, {
+  window.slideRabbit = window.mountRabbit?.(stage, {
     scale: () => (document.body.classList.contains('portrait') ? 2.4 : 2),
     active: () => document.body.classList.contains('playing'),
     watch: document.body,

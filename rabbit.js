@@ -1,12 +1,18 @@
 // Thỏ ngọc: a jade rabbit that lives at the bottom of a box (the membership box on the site,
 // and, look-only, along the bottom of the slideshow: it hops in from the side the first time
 // the show plays, freezes mid-action on pause and carries on when play resumes).
+//
 // It rests and fidgets (blinks, glances, twitches its ears, grooms, sniffs, stands up to look
-// around), takes one or two short hops at a time, and now and then digs up a carrot and eats
-// it. Press and hold on it to pick it up by the scruff; it dangles from the pointer until you
-// let go or leave the box, then drops and shakes itself off. A carrot it was busy with stays
-// on the ground until it hops close enough to notice it again.
-// mountRabbit(box, { scale(W), active(), interactive }):
+// around), takes short hops that lean toward open space, sometimes strolls across to a far
+// spot, digs up and eats carrots, naps (and stretches on waking), sploots, rolls over, does
+// the odd binky, and chases a butterfly when one drifts by. Each of the bigger things has its
+// own cooldown, so a long-running loop keeps varying.
+//
+// On the site you can press and hold to pick it up by the scruff; it dangles from the pointer
+// until you let go or leave the box, then drops and shakes itself off. A carrot it was busy
+// with stays on the ground until it hops close enough to notice it again.
+//
+// mountRabbit(box, { scale(W), active(), watch, interactive, enter }):
 //   scale    rabbit size for a box this wide (default: 1, or 1.25 on wide boxes)
 //   active   when given, the rabbit only runs while this returns true (re-checked when the
 //            class of opt.watch, default the box, changes); otherwise it runs while on screen
@@ -46,40 +52,56 @@ window.mountRabbit = (box, opt = {}) => {
   // ── State ──
   const r = {
     x: 0, y: 0, d: 0.6, face: 1,
-    mode: 'rest', t: 0, until: 2,
-    hops: 0, hopT: 0, hopFrom: 0, hopTo: 0, pause: 0, chaseX: null,
+    mode: 'rest', t: 0, until: 2, after: null,
+    hops: 0, hopT: 0, hopFrom: 0, hopTo: 0, pause: 0, chaseX: null, entering: false,
+    hopDur: 0.42, hopH: 11, binky: false, twist: 0,
     // pose, eased toward targets every frame
     air: 0, squash: 0, rear: 0, headDown: 0, paw: 0, dig: 0, chew: 0, shake: 0,
+    flat: 0, stretch: 0, roll: 0, eyesShut: false,
     earA: -0.45, earB: -0.2, earAT: -0.45, earBT: -0.2,
     lookX: 0, lookY: 0, lookTX: 0, lookTY: 0, blink: 0, nose: 0, noseRate: 8,
     act: null, actT: 0, // small things to do while resting
-    blinkIn: 2, earIn: 1, glanceIn: 1.5,
+    blinkIn: 2, earIn: 1, glanceIn: 1.5, zIn: 0, jumpIn: 0,
     vx: 0, vy: 0, swing: 0, kick: 0, // held / falling
   };
+  // seconds until each bigger behaviour may happen again
+  const cool = { carrot: rand(6, 12), fly: rand(25, 45), sleep: rand(45, 80), flop: rand(12, 25), binky: rand(8, 20) };
   let carrot = null; // the one being dug up or eaten: { x, len 0..1, state: 'buried' | 'mouth', out 0..1 }
   const lying = []; // carrots left on the ground after a grab: { x, len, tilt }
   const MAX_LYING = 5; // with this many about, it finishes leftovers before digging more
-  let carrotCooldown = rand(6, 12);
+  let fly = null; // a butterfly: { x, y, tx, ty, t, life, retarget, leaving, flap, hue }
+  const zs = []; // floating z's while it sleeps
   const pointer = { x: -1e3, y: -1e3, inside: false };
   let held = null;
 
   const setMode = (m, until = 0) => { r.mode = m; r.t = 0; r.until = until; };
   const mouthX = () => r.x + r.face * 28 * S;
+  // which way to go: a coin toss weighted toward the roomier side, so it uses the whole floor
+  const roomyDir = () => (Math.random() < 0.5 - 0.42 * ((r.x - W / 2) / (W / 2)) ? 1 : -1);
 
   function rest(min = 2, max = 5) { setMode('rest', rand(min, max)); r.act = null; r.actT = rand(0.6, 1.6); }
 
-  function startHops(n, dir, toX = null) {
+  function startHops(n, dir, toX = null, kind = 'hop') {
     r.hops = n; r.pause = 0; r.face = dir; r.chaseX = toX;
+    r.binky = kind === 'binky';
+    r.hopDur = r.binky ? 0.62 : 0.42;
+    r.hopH = r.binky ? 30 : 11;
     setMode('hop');
     nextHop();
   }
   function nextHop() {
     const m = margin();
-    let dist = rand(16, 28) * S;
+    let dist = (r.binky ? rand(22, 34) : rand(16, 28)) * S;
     if (r.chaseX != null) dist = Math.min(dist * 1.2, Math.abs(r.chaseX - r.x));
     let to = r.x + r.face * dist;
     if (!r.entering && (to < m || to > W - m)) { r.face *= -1; to = clamp(r.x + r.face * dist, m, W - m); }
     r.hopFrom = r.x; r.hopTo = to; r.hopT = 0;
+  }
+  function stroll() { // a walk across to somewhere well away from here
+    const m = margin();
+    let tx = rand(m, W - m);
+    for (let i = 0; i < 5 && Math.abs(tx - r.x) < W * 0.3; i++) tx = rand(m, W - m);
+    startHops(Math.ceil(Math.abs(tx - r.x) / (20 * S)) + 1, Math.sign(tx - r.x) || 1, tx);
   }
   function eatLying(dir, c) {
     lying.splice(lying.indexOf(c), 1);
@@ -100,6 +122,17 @@ window.mountRabbit = (box, opt = {}) => {
     return clamp(x, m, W - m);
   }
 
+  function spawnFly() {
+    const fromLeft = Math.random() < 0.5, gy = groundY(r.d);
+    fly = {
+      x: fromLeft ? -20 * S : W + 20 * S, y: gy - rand(100, 150) * S,
+      tx: r.x, ty: gy - 90 * S, t: 0, life: rand(10, 16), retarget: 0, leaving: false,
+      flap: 0, hue: Math.random() < 0.5 ? ['#ff9dbb', '#ffd34d'] : ['#9fd8ff', '#ffe08a'],
+    };
+    cool.fly = rand(50, 100);
+    setMode('chase');
+  }
+
   function decide() {
     // a carrot left on the ground nearby gets noticed
     const near = nearestLying(170 * S);
@@ -110,14 +143,23 @@ window.mountRabbit = (box, opt = {}) => {
       startHops(Math.ceil(Math.abs(standX - r.x) / (24 * S)) + 1, dir, standX);
       return;
     }
-    const roll = Math.random();
-    if (!carrot && lying.length < MAX_LYING && carrotCooldown <= 0 && roll < 0.22) {
+    const chance = p => Math.random() < p;
+    if (!fly && cool.fly <= 0 && chance(0.3)) { spawnFly(); return; }
+    if (cool.sleep <= 0 && chance(0.25)) { cool.sleep = rand(80, 150); setMode('sleep', rand(8, 15)); return; }
+    if (!carrot && lying.length < MAX_LYING && cool.carrot <= 0 && chance(0.22)) {
       carrot = { x: mouthX(), len: 1, state: 'buried', out: 0, tilt: 0 };
       setMode('dig', rand(1.4, 2));
       return;
     }
-    if (roll < 0.7) startHops(Math.random() < 0.65 ? 1 : 2, Math.random() < 0.6 ? r.face : -r.face);
-    else if (roll < 0.82) startHops(Math.floor(rand(3, 5)), Math.random() < 0.5 ? 1 : -1); // a little stroll
+    if (cool.flop <= 0 && chance(0.25)) {
+      cool.flop = rand(20, 40);
+      if (chance(0.55)) setMode('sploot', rand(3, 6)); else setMode('roll', 0.95);
+      return;
+    }
+    if (cool.binky <= 0 && chance(0.25)) { cool.binky = rand(15, 35); startHops(chance(0.6) ? 1 : 2, roomyDir(), null, 'binky'); return; }
+    const roll = Math.random();
+    if (roll < 0.6) startHops(chance(0.6) ? 1 : 2, roomyDir());
+    else if (roll < 0.82) stroll();
     else rest(1.5, 3.5);
   }
 
@@ -135,10 +177,13 @@ window.mountRabbit = (box, opt = {}) => {
       else if (which < 0.9) r.earB = r.earBT + rand(-0.45, 0.3);
       else { r.earA -= 0.4; r.earB -= 0.4; }
     }
-    // eyes glance around, or follow the pointer when it's close
+    // eyes: on the butterfly, else on a nearby pointer, else glancing about
     r.glanceIn -= dt;
     const near = pointer.inside && Math.hypot(pointer.x - r.x, pointer.y - r.y) < 220 * S;
-    if (near && r.mode !== 'held') {
+    if (fly && r.mode !== 'held') {
+      r.lookTX = clamp((fly.x - r.x) * r.face / 50, -1, 1);
+      r.lookTY = clamp((fly.y - (r.y - 30 * S)) / 50, -1, 1);
+    } else if (near && r.mode !== 'held') {
       r.lookTX = clamp((pointer.x - r.x) * r.face / 60, -1, 1);
       r.lookTY = clamp((pointer.y - (r.y - 30 * S)) / 60, -1, 1);
     } else if (r.glanceIn < 0) {
@@ -152,13 +197,37 @@ window.mountRabbit = (box, opt = {}) => {
     r.nose += dt * r.noseRate;
   }
 
+  function stepFly(dt) {
+    if (!fly) return;
+    const gy = groundY(r.d);
+    fly.t += dt; fly.flap += dt * 22; fly.retarget -= dt;
+    if (!fly.leaving && fly.t > fly.life) {
+      fly.leaving = true;
+      fly.tx = fly.x < W / 2 ? -80 * S : W + 80 * S; fly.ty = Math.max(10 * S, gy - 280 * S);
+    }
+    if (!fly.leaving && fly.retarget < 0) { // flit about near the rabbit, sometimes dipping low
+      fly.retarget = rand(0.9, 1.6);
+      fly.tx = clamp(r.x + rand(-170, 170) * S, 20 * S, W - 20 * S);
+      fly.ty = gy - rand(30, 130) * S;
+    }
+    fly.x += (fly.tx - fly.x) * Math.min(1, 0.9 * dt) + Math.sin(fly.t * 3.1) * 26 * S * dt;
+    fly.y += (fly.ty - fly.y) * Math.min(1, 1.1 * dt) + Math.cos(fly.t * 4.3) * 34 * S * dt;
+    if (fly.leaving && (fly.x < -60 * S || fly.x > W + 60 * S)) fly = null;
+  }
+
   function step(dt) {
     r.t += dt;
-    carrotCooldown -= dt;
+    for (const k in cool) cool[k] -= dt;
     fidgets(dt);
+    stepFly(dt);
+    for (const z of zs) { z.t += dt; z.y -= 14 * S * dt; z.x += Math.sin(z.t * 2 + z.p) * 6 * S * dt; }
+    while (zs.length && zs[0].t > 2.4) zs.shift();
     r.squash = Math.max(0, r.squash - dt * 3);
     r.shake = Math.max(0, r.shake - dt * 1.8);
-    let earsT = [-0.45, -0.2], headDown = 0, rear = 0, paw = 0, dig = 0, chew = 0, noseRate = 8;
+    let earsT = [-0.45, -0.2], headDown = 0, rear = 0, paw = 0, dig = 0, chew = 0, noseRate = 8, flat = 0, stretch = 0;
+    r.eyesShut = false;
+    if (r.mode !== 'roll') r.roll = 0; // never stay tipped over if something cut a roll short
+    if (r.mode !== 'hop') r.twist = 0;
 
     switch (r.mode) {
       case 'held': {
@@ -189,28 +258,75 @@ window.mountRabbit = (box, opt = {}) => {
         break;
       case 'shaken': // a good shake to put the fur back in order, then a couple of hops away
         r.y = groundY(r.d);
-        if (r.t > r.until) startHops(2, Math.random() < 0.5 ? 1 : -1);
+        if (r.t > r.until) startHops(2, roomyDir());
         break;
       case 'hop': {
         r.y = groundY(r.d);
         if (r.pause > 0) { r.pause -= dt; earsT = [-0.5, -0.25]; break; }
-        r.hopT += dt / 0.42;
+        r.hopT += dt / r.hopDur;
         const k = Math.min(1, r.hopT);
         r.air = Math.sin(k * Math.PI);
         r.x = r.hopFrom + (r.hopTo - r.hopFrom) * (k * k * (3 - 2 * k));
-        r.y = groundY(r.d) - r.air * 11 * S;
-        earsT = [-0.75, -0.5];
+        r.y = groundY(r.d) - r.air * r.hopH * S;
+        r.twist = r.binky ? Math.sin(k * TAU) * 0.45 : 0; // the happy mid-air twist
+        earsT = r.binky ? [-0.2 + Math.sin(k * 9) * 0.4, 0.1 - Math.sin(k * 9) * 0.4] : [-0.75, -0.5];
         if (k >= 1) {
-          r.air = 0; r.squash = 0.25; r.hops -= 1;
+          r.air = 0; r.twist = 0; r.squash = r.binky ? 0.45 : 0.25; r.hops -= 1;
           const arrived = r.chaseX != null && Math.abs(r.chaseX - r.x) < 6 * S;
           if (r.hops > 0 && !arrived) { r.pause = rand(0.12, 0.3); nextHop(); }
           else {
-            r.chaseX = null; r.entering = false;
+            r.chaseX = null; r.entering = false; r.binky = false;
             const c = lying.find(c => Math.abs(c.x - mouthX()) < 22 * S);
-            if (c) eatLying(r.face, c);
+            if (r.after) { const a = r.after; r.after = null; setMode(a); }
+            else if (c) eatLying(r.face, c);
             else rest();
           }
         }
+        break;
+      }
+      case 'chase': { // a butterfly is about: watch it, hop after it, jump when it comes low
+        r.y = groundY(r.d);
+        if (!fly) { rest(1, 2.5); break; }
+        const dx = fly.x - r.x, high = groundY(r.d) - fly.y;
+        if (Math.abs(dx) > 12 * S) r.face = Math.sign(dx);
+        rear = clamp(high / (130 * S), 0.2, 1); earsT = [0.05, 0.2]; noseRate = 16;
+        r.jumpIn -= dt;
+        if (fly.leaving || r.t < 0.5) break; // watching it go, or just noticed it
+        if (Math.abs(dx) > 70 * S) {
+          r.after = 'chase';
+          startHops(1, Math.sign(dx), clamp(fly.x - Math.sign(dx) * 30 * S, margin(), W - margin()));
+        } else if (high < 80 * S && r.jumpIn < 0) {
+          r.jumpIn = rand(1.2, 2.4); r.after = 'chase';
+          startHops(1, Math.sign(dx) || r.face, null, 'binky');
+        }
+        break;
+      }
+      case 'sleep': // lies flat, eyes shut, slow breaths, z's drifting up
+        r.y = groundY(r.d);
+        flat = 1; headDown = 0.35; earsT = [-1.3, -1.15]; noseRate = 1.5; r.eyesShut = true;
+        r.zIn -= dt;
+        if (r.zIn < 0) { r.zIn = 1.3; zs.push({ x: r.x + r.face * 22 * S, y: r.y - 34 * S, t: 0, p: Math.random() * TAU }); }
+        if (fly && !fly.leaving) setMode('chase'); // woken by a butterfly
+        else if (r.t > r.until) setMode('stretch', 1.3);
+        break;
+      case 'stretch': // a long stretch on waking: front paws out, back low, then up
+        r.y = groundY(r.d);
+        stretch = Math.sin(Math.min(1, r.t / r.until) * Math.PI); flat = 0.5 * stretch; earsT = [-0.9, -0.7];
+        r.eyesShut = r.t < r.until * 0.5;
+        if (r.t > r.until) rest(1, 2);
+        break;
+      case 'sploot': // sprawled flat on its tummy, hind legs out behind, very relaxed
+        r.y = groundY(r.d);
+        flat = 1; headDown = 0.55; earsT = [-1.15, -1]; noseRate = 4;
+        if (r.t > r.until) rest(1, 2);
+        break;
+      case 'roll': { // a happy roll-over, moving forward a little as it goes
+        r.y = groundY(r.d);
+        const k = Math.min(1, r.t / r.until);
+        r.roll = (k * k * (3 - 2 * k)) * TAU;
+        r.x = clamp(r.x + r.face * 50 * S * dt / r.until, margin(), W - margin());
+        earsT = [-1, -0.8];
+        if (k >= 1) { r.roll = 0; r.squash = 0.3; r.shake = 0.6; rest(1, 2); }
         break;
       }
       case 'dig': // paws scrabble at the ground and the leaves of a carrot appear
@@ -226,7 +342,7 @@ window.mountRabbit = (box, opt = {}) => {
       case 'eat': // munch from the tip until it's gone
         chew = 1; noseRate = 18; earsT = [-0.55, -0.3];
         carrot.len -= dt / 5.5;
-        if (carrot.len <= 0) { carrot = null; carrotCooldown = rand(10, 20); rest(1.5, 3); }
+        if (carrot.len <= 0) { carrot = null; cool.carrot = rand(10, 20); rest(1.5, 3); }
         break;
       default: { // rest
         r.y = groundY(r.d);
@@ -245,7 +361,8 @@ window.mountRabbit = (box, opt = {}) => {
         if (r.act === 'sniff') { headDown = 0.75; noseRate = 24; }
         if (r.act === 'rear') { rear = 1; earsT = [0.05, 0.15]; noseRate = 16; }
         if (r.act === 'loaf') { earsT = [-1, -0.85]; }
-        if (r.t > r.until && (!r.act || r.act === 'loaf')) decide();
+        if (fly && !fly.leaving) setMode('chase');
+        else if (r.t > r.until && (!r.act || r.act === 'loaf')) decide();
       }
     }
     r.earAT = earsT[0]; r.earBT = earsT[1];
@@ -254,6 +371,8 @@ window.mountRabbit = (box, opt = {}) => {
     r.paw = ease(r.paw, paw, 8, dt);
     r.dig = ease(r.dig, dig, 8, dt);
     r.chew = ease(r.chew, chew, 8, dt);
+    r.flat = ease(r.flat, flat, 4, dt);
+    r.stretch = ease(r.stretch, stretch, 8, dt);
     r.noseRate = noseRate;
   }
 
@@ -275,7 +394,7 @@ window.mountRabbit = (box, opt = {}) => {
   function innerEar(base, a) { g.beginPath(); g.ellipse(base[0] + Math.sin(a) * 12.5, base[1] - Math.cos(a) * 12.5, 2.1, 9.5, a, 0, TAU); g.fill(); }
   function face(hx, hy, wide) {
     const ex = hx + 4, ey = hy - 2;
-    if (r.blink > 0.3) {
+    if (r.blink > 0.3 || r.eyesShut) {
       g.strokeStyle = '#1b1b2f'; g.lineWidth = 1.6; g.lineCap = 'round';
       g.beginPath(); g.moveTo(ex - 2.2, ey); g.quadraticCurveTo(ex, ey + 1.4, ex + 2.2, ey); g.stroke();
     } else {
@@ -307,16 +426,39 @@ window.mountRabbit = (box, opt = {}) => {
     g.restore();
   }
 
+  function drawFly() {
+    const open = 0.25 + 0.75 * Math.abs(Math.sin(fly.flap)); // wings flapping
+    g.save();
+    g.translate(fly.x, fly.y);
+    g.scale(S * 1.3, S * 1.3);
+    g.rotate(Math.sin(fly.t * 3) * 0.2);
+    g.fillStyle = fly.hue[0]; g.strokeStyle = 'rgba(40, 20, 70, .5)'; g.lineWidth = 1;
+    for (const side of [-1, 1]) {
+      g.save(); g.scale(side * open, 1);
+      g.beginPath(); g.ellipse(6, -4, 7, 5.5, -0.5, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = fly.hue[1];
+      g.beginPath(); g.ellipse(5, 4, 4.5, 3.5, 0.5, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = fly.hue[0];
+      g.restore();
+    }
+    g.fillStyle = '#2a1840';
+    g.beginPath(); g.ellipse(0, 0, 1.4, 5, 0, 0, TAU); g.fill();
+    g.strokeStyle = '#2a1840'; g.lineWidth = 0.8;
+    g.beginPath(); g.moveTo(0, -4); g.quadraticCurveTo(-2, -9, -4, -10); g.moveTo(0, -4); g.quadraticCurveTo(2, -9, 4, -10); g.stroke();
+    g.restore();
+  }
+
   function drawGround() {
-    const air = r.air, rear = r.rear, hd = r.headDown;
-    const backFoot = -6 - air * 7;
-    let pawX = 13 + air * 5, pawY = -3;
+    const air = r.air, rear = r.rear, hd = r.headDown, f = r.flat, st = r.stretch;
+    const breath = r.mode === 'sleep' ? Math.sin(r.t * 2.2) * 0.6 : 0;
+    const backFoot = -6 - air * 7 - f * 9;
+    let pawX = 13 + air * 5 + f * 6 + st * 9, pawY = -3;
     if (r.dig > 0.01) { pawX = 14 + Math.sin(r.t * 22) * 4 * r.dig; pawY = -3 - Math.abs(Math.cos(r.t * 22)) * 2 * r.dig; }
     // standing up: the upper body rotates back around the hips
     const piv = [-6, -8], ang = -0.95 * rear, c = Math.cos(ang), s = Math.sin(ang);
     const rot = (x, y) => [piv[0] + (x - piv[0]) * c - (y - piv[1]) * s, piv[1] + (x - piv[0]) * s + (y - piv[1]) * c];
-    const [hx, hy] = rot(17 + hd * 5, -27 + hd * 11 + r.chew * Math.sin(r.t * 16) * 0.8);
-    const body = rot(2, -16);
+    const [hx, hy] = rot(17 + hd * 5 + f * 7 + st * 4, -27 + hd * 11 + f * 11 + r.chew * Math.sin(r.t * 16) * 0.8);
+    const body = rot(2, -16 + f * 6 + st * 2);
     let paw = rot(pawX, pawY);
     if (r.paw > 0.01) { // grooming: paws come up to the face
       const p2 = [hx + 5, hy + 6 + Math.sin(r.t * 9) * 2];
@@ -324,17 +466,17 @@ window.mountRabbit = (box, opt = {}) => {
     }
     const baseFar = [hx - 6, hy - 8], baseNear = [hx - 3, hy - 9];
     silhouette([
-      ['e', backFoot, -2, 9, 3.4],
-      ['c', -22, -17, 5.5],
+      ['e', backFoot, -2, 9 + f * 2, 3.4],
+      ['c', -22 - f * 4, -17 + f * 7, 5.5],
       ear(baseFar, r.earA + ang),
-      ['c', -8, -14, 12.5],
-      ['e', body[0], body[1], 18, 13, ang],
+      ['c', -8 - f * 2, -14 + f * 5, 12.5 - f * 1.5],
+      ['e', body[0], body[1], 18 + f * 5 + st * 3, 13 - f * 3 + breath, ang],
       ['e', paw[0], paw[1], 4.5, 3],
       ['c', hx, hy, 10.5],
       ear(baseNear, r.earB + ang),
     ]);
     g.fillStyle = 'rgba(150, 130, 190, .14)';
-    g.beginPath(); g.ellipse(-6, -8, 12, 6, 0, 0, TAU); g.fill();
+    g.beginPath(); g.ellipse(-6 - f * 2, -8 + f * 4, 12, 6 - f * 2, 0, 0, TAU); g.fill();
     g.fillStyle = '#ffb3c7'; innerEar(baseNear, r.earB + ang);
     face(hx, hy, false);
     return [hx + 10, hy + 2]; // mouth
@@ -373,7 +515,7 @@ window.mountRabbit = (box, opt = {}) => {
     const feetY = heldish ? r.y + HANG * S : r.y;
     const lift = clamp((gy - feetY) / (140 * S), 0, 1);
     g.fillStyle = `rgba(0, 0, 0, ${0.3 * (1 - lift * 0.7)})`;
-    g.beginPath(); g.ellipse(r.x, gy + 1, 22 * sc * (1 - lift * 0.5), 4.5 * sc * (1 - lift * 0.5), 0, 0, TAU); g.fill();
+    g.beginPath(); g.ellipse(r.x, gy + 1, (22 + r.flat * 6) * sc * (1 - lift * 0.5), 4.5 * sc * (1 - lift * 0.5), 0, 0, TAU); g.fill();
 
     for (const c of lying) drawCarrot(c.x, gy - 4 * S, c.tilt, c.len, S);
     if (carrot?.state === 'buried') { // in the ground: upright, clipped at the ground line
@@ -391,11 +533,28 @@ window.mountRabbit = (box, opt = {}) => {
     } else {
       if (r.squash) g.scale(1 + r.squash * 0.22, 1 - r.squash * 0.22);
       if (r.air) g.rotate(-0.16 * r.air);
+      if (r.twist) g.rotate(r.twist);
+      if (r.roll) { // roll over around the middle of the body, lifted so it stays on the ground
+        g.translate(0, -16 - Math.sin(r.roll / 2) * 6); g.rotate(r.roll); g.translate(0, 16);
+      }
       if (r.shake) g.rotate(Math.sin(r.shake * 40) * 0.08 * r.shake);
       const mouth = drawGround();
       if (carrot?.state === 'mouth') drawCarrot(mouth[0] + 30 * carrot.len + 2, mouth[1] + 1, Math.PI + 0.12, carrot.len, 1);
     }
     g.restore();
+
+    // z's over a sleeping rabbit
+    if (zs.length) {
+      g.save();
+      g.textAlign = 'center';
+      for (const z of zs) {
+        g.fillStyle = `rgba(255, 255, 255, ${0.85 * Math.max(0, 1 - z.t / 2.4)})`;
+        g.font = `700 ${Math.round((9 + z.t * 3) * S)}px "Be Vietnam Pro", system-ui, sans-serif`;
+        g.fillText('z', z.x, z.y);
+      }
+      g.restore();
+    }
+    if (fly) drawFly();
   }
 
   // ── Pointer: grab, carry, drop ──
@@ -414,8 +573,13 @@ window.mountRabbit = (box, opt = {}) => {
       if (carrot.out >= 0.3) lying.push({ x: freeSpot(mouthX()), tilt: rand(-0.15, 0.15), len: Math.max(carrot.len, 0.2) });
       carrot = null; // one still in the ground is forgotten for now
     }
+    if (fly) { fly.t = fly.life; } // the butterfly takes fright and leaves
+    zs.length = 0;
     held = { lastX: p.x, lastY: p.y, vx: 0, vy: 0 };
-    Object.assign(r, { air: 0, squash: 0, swing: 0, shake: 0, rear: 0, headDown: 0, paw: 0, dig: 0, chew: 0, act: null, chaseX: null });
+    Object.assign(r, {
+      air: 0, squash: 0, swing: 0, shake: 0, rear: 0, headDown: 0, paw: 0, dig: 0, chew: 0, flat: 0, stretch: 0,
+      roll: 0, twist: 0, binky: false, act: null, chaseX: null, after: null,
+    });
     box.classList.add('rabbit-grabbing');
     setMode('held', Infinity);
   }
@@ -448,7 +612,7 @@ window.mountRabbit = (box, opt = {}) => {
     box.addEventListener('touchstart', e => { const t = e.touches[0]; if (t && hit(local(t))) e.preventDefault(); }, { passive: false });
   }
 
-  // ── Loop, only while the box is on screen ──
+  // ── Loop, only while the box is on screen (or the slideshow is playing) ──
   let running = false, last = 0;
   function frame(now) {
     if (!running) return;
@@ -479,7 +643,7 @@ window.mountRabbit = (box, opt = {}) => {
   } else new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else running = false; }).observe(box);
   const fitBox = () => {
     size();
-    r.x = clamp(r.x || W * 0.25, margin(), W - margin());
+    if (!r.entering) r.x = clamp(r.x || W * 0.25, margin(), W - margin());
     if (r.mode !== 'held' && r.mode !== 'fall') r.y = groundY(r.d);
     for (const c of lying) c.x = clamp(c.x, margin(), W - margin());
     render();
@@ -495,6 +659,9 @@ window.mountRabbit = (box, opt = {}) => {
     addEventListener('pointermove', () => { if (r.mode === 'held') { r.x = clamp(pointer.x, 0, W); r.y = clamp(pointer.y, 0, groundY(r.d) - HANG * S); render(); } });
     addEventListener('pointerup', () => { r.mode = 'rest'; r.y = groundY(r.d); r.x = clamp(r.x, margin(), W - margin()); render(); });
   }
+
+  // test hook: force a behaviour (only used while developing)
+  return { r, force(what) { ({ fly: spawnFly, sleep: () => setMode('sleep', 8), sploot: () => setMode('sploot', 4), roll: () => setMode('roll', 0.95), binky: () => startHops(1, roomyDir(), null, 'binky'), stroll })[what]?.(); } };
 };
 
-mountRabbit(document.querySelector('.member'));
+window.siteRabbit = mountRabbit(document.querySelector('.member'));

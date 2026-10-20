@@ -45,7 +45,9 @@
     blinkIn: 2, earIn: 1, glanceIn: 1.5,
     vx: 0, vy: 0, swing: 0, kick: 0, // held / falling
   };
-  let carrot = null; // { x, len 0..1, state: 'buried' | 'mouth' | 'lying', out 0..1, tilt }
+  let carrot = null; // the one being dug up or eaten: { x, len 0..1, state: 'buried' | 'mouth', out 0..1 }
+  const lying = []; // carrots left on the ground after a grab: { x, len, tilt }
+  const MAX_LYING = 5; // with this many about, it finishes leftovers before digging more
   let carrotCooldown = rand(6, 12);
   const pointer = { x: -1e3, y: -1e3, inside: false };
   let held = null;
@@ -68,19 +70,37 @@
     if (to < m || to > W - m) { r.face *= -1; to = clamp(r.x + r.face * dist, m, W - m); }
     r.hopFrom = r.x; r.hopTo = to; r.hopT = 0;
   }
-  function eatLying(dir) { r.face = dir; carrot.state = 'mouth'; setMode('eat'); }
+  function eatLying(dir, c) {
+    lying.splice(lying.indexOf(c), 1);
+    carrot = { x: c.x, len: c.len, state: 'mouth', out: 1 };
+    r.face = dir; setMode('eat');
+  }
+  const nearestLying = within => lying.reduce((best, c) => {
+    const d = Math.abs(c.x - r.x);
+    return d < within && (!best || d < Math.abs(best.x - r.x)) ? c : best;
+  }, null);
+  // somewhere on the floor near x that isn't right on top of another carrot
+  function freeSpot(x) {
+    const m = margin(), gap = 40 * S; // about a carrot-length apart
+    for (const off of [0, 1, -1, 2, -2, 3, -3]) {
+      const tx = clamp(x + off * gap, m, W - m);
+      if (lying.every(c => Math.abs(c.x - tx) >= gap)) return tx;
+    }
+    return clamp(x, m, W - m);
+  }
 
   function decide() {
     // a carrot left on the ground nearby gets noticed
-    if (carrot?.state === 'lying' && Math.abs(carrot.x - r.x) < 170 * S) {
-      const dir = Math.sign(carrot.x - r.x) || r.face;
-      const standX = carrot.x - dir * 28 * S;
-      if (Math.abs(standX - r.x) < 6 * S) { eatLying(dir); return; }
+    const near = nearestLying(170 * S);
+    if (near) {
+      const dir = Math.sign(near.x - r.x) || r.face;
+      const standX = near.x - dir * 28 * S;
+      if (Math.abs(standX - r.x) < 6 * S) { eatLying(dir, near); return; }
       startHops(Math.ceil(Math.abs(standX - r.x) / (24 * S)) + 1, dir, standX);
       return;
     }
     const roll = Math.random();
-    if (!carrot && carrotCooldown <= 0 && roll < 0.22) {
+    if (!carrot && lying.length < MAX_LYING && carrotCooldown <= 0 && roll < 0.22) {
       carrot = { x: mouthX(), len: 1, state: 'buried', out: 0, tilt: 0 };
       setMode('dig', rand(1.4, 2));
       return;
@@ -175,7 +195,8 @@
           if (r.hops > 0 && !arrived) { r.pause = rand(0.12, 0.3); nextHop(); }
           else {
             r.chaseX = null;
-            if (carrot?.state === 'lying' && Math.abs(carrot.x - mouthX()) < 22 * S) eatLying(r.face);
+            const c = lying.find(c => Math.abs(c.x - mouthX()) < 22 * S);
+            if (c) eatLying(r.face, c);
             else rest();
           }
         }
@@ -343,13 +364,11 @@
     g.fillStyle = `rgba(0, 0, 0, ${0.3 * (1 - lift * 0.7)})`;
     g.beginPath(); g.ellipse(r.x, gy + 1, 22 * sc * (1 - lift * 0.5), 4.5 * sc * (1 - lift * 0.5), 0, 0, TAU); g.fill();
 
-    if (carrot && carrot.state !== 'mouth') {
-      if (carrot.state === 'lying') drawCarrot(carrot.x, gy - 4 * S, carrot.tilt, carrot.len, S);
-      else { // in the ground: upright, clipped at the ground line
-        g.save(); g.beginPath(); g.rect(0, 0, W, gy); g.clip();
-        drawCarrot(carrot.x, gy - (carrot.out * 30 + 4) * S, Math.PI / 2, 1, S);
-        g.restore();
-      }
+    for (const c of lying) drawCarrot(c.x, gy - 4 * S, c.tilt, c.len, S);
+    if (carrot?.state === 'buried') { // in the ground: upright, clipped at the ground line
+      g.save(); g.beginPath(); g.rect(0, 0, W, gy); g.clip();
+      drawCarrot(carrot.x, gy - (carrot.out * 30 + 4) * S, Math.PI / 2, 1, S);
+      g.restore();
     }
 
     g.save();
@@ -380,9 +399,9 @@
   }
   function grab(p) {
     // the carrot it was busy with stays behind on the ground
-    if (carrot && carrot.state !== 'lying') {
-      if (carrot.out < 0.3) carrot = null; // still in the ground: forgotten for now
-      else Object.assign(carrot, { state: 'lying', x: clamp(mouthX(), margin(), W - margin()), tilt: rand(-0.15, 0.15), len: Math.max(carrot.len, 0.2) });
+    if (carrot) {
+      if (carrot.out >= 0.3) lying.push({ x: freeSpot(mouthX()), tilt: rand(-0.15, 0.15), len: Math.max(carrot.len, 0.2) });
+      carrot = null; // one still in the ground is forgotten for now
     }
     held = { lastX: p.x, lastY: p.y, vx: 0, vy: 0 };
     Object.assign(r, { air: 0, squash: 0, swing: 0, shake: 0, rear: 0, headDown: 0, paw: 0, dig: 0, chew: 0, act: null, chaseX: null });
@@ -432,7 +451,7 @@
     size();
     r.x = clamp(r.x || W * 0.25, margin(), W - margin());
     if (r.mode !== 'held' && r.mode !== 'fall') r.y = groundY(r.d);
-    if (carrot) carrot.x = clamp(carrot.x, margin(), W - margin());
+    for (const c of lying) c.x = clamp(c.x, margin(), W - margin());
     render();
   }).observe(box);
 

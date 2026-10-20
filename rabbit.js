@@ -1,12 +1,18 @@
-// Thỏ ngọc: a jade rabbit that lives at the bottom of the membership box.
+// Thỏ ngọc: a jade rabbit that lives at the bottom of a box (the membership box on the site,
+// and, look-only, the membership slide).
 // It rests and fidgets (blinks, glances, twitches its ears, grooms, sniffs, stands up to look
 // around), takes one or two short hops at a time, and now and then digs up a carrot and eats
 // it. Press and hold on it to pick it up by the scruff; it dangles from the pointer until you
 // let go or leave the box, then drops and shakes itself off. A carrot it was busy with stays
 // on the ground until it hops close enough to notice it again.
-(() => {
-  const box = document.querySelector('.member');
+// mountRabbit(box, { scale(W), active(), interactive }):
+//   scale    rabbit size for a box this wide (default: 1, or 1.25 on wide boxes)
+//   active   when given, the rabbit only runs while this returns true (re-checked when the
+//            box's class changes); otherwise it runs while the box is on screen
+//   interactive  false for a rabbit you can only watch
+window.mountRabbit = (box, opt = {}) => {
   if (!box) return;
+  const interactive = opt.interactive !== false;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const cv = document.createElement('canvas');
@@ -22,10 +28,12 @@
 
   let W = 0, H = 0, dpr = 1, S = 1;
   function size() {
-    dpr = Math.min(devicePixelRatio || 1, 2);
     W = box.clientWidth; H = box.clientHeight;
+    // a box inside a scaled stage (the slideshow) renders at its on-screen size
+    const view = box.getBoundingClientRect().width / W || 1;
+    dpr = Math.min(devicePixelRatio || 1, 2) * view;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    S = W < 520 ? 1 : 1.25;
+    S = opt.scale ? opt.scale(W) : W < 520 ? 1 : 1.25;
   }
   // Feet sit right on the bottom edge; depth (0 back … 1 front) only shifts a few pixels.
   const groundY = d => H - 7 * S - (1 - d) * 6 * S;
@@ -415,25 +423,27 @@
     box.classList.remove('rabbit-grabbing');
     setMode('fall');
   }
-  box.addEventListener('pointermove', e => {
-    Object.assign(pointer, local(e));
-    if (r.mode === 'held') { if (!pointer.inside) drop(); return; }
-    box.classList.toggle('rabbit-hover', hit(pointer));
-  });
-  box.addEventListener('pointerleave', () => { pointer.inside = false; box.classList.remove('rabbit-hover'); drop(); });
-  box.addEventListener('pointerdown', e => {
-    const p = local(e);
-    if (!hit(p)) return;
-    e.preventDefault();
-    Object.assign(pointer, p);
-    try { box.setPointerCapture(e.pointerId); } catch {} // keep getting moves even over the QR image
-    grab(p);
-    if (still) render();
-  });
-  addEventListener('pointerup', drop);
-  addEventListener('pointercancel', drop);
-  // On touch screens a press on the rabbit picks it up instead of scrolling the page.
-  box.addEventListener('touchstart', e => { const t = e.touches[0]; if (t && hit(local(t))) e.preventDefault(); }, { passive: false });
+  if (interactive) {
+    box.addEventListener('pointermove', e => {
+      Object.assign(pointer, local(e));
+      if (r.mode === 'held') { if (!pointer.inside) drop(); return; }
+      box.classList.toggle('rabbit-hover', hit(pointer));
+    });
+    box.addEventListener('pointerleave', () => { pointer.inside = false; box.classList.remove('rabbit-hover'); drop(); });
+    box.addEventListener('pointerdown', e => {
+      const p = local(e);
+      if (!hit(p)) return;
+      e.preventDefault();
+      Object.assign(pointer, p);
+      try { box.setPointerCapture(e.pointerId); } catch {} // keep getting moves even over the QR image
+      grab(p);
+      if (still) render();
+    });
+    addEventListener('pointerup', drop);
+    addEventListener('pointercancel', drop);
+    // On touch screens a press on the rabbit picks it up instead of scrolling the page.
+    box.addEventListener('touchstart', e => { const t = e.touches[0]; if (t && hit(local(t))) e.preventDefault(); }, { passive: false });
+  }
 
   // ── Loop, only while the box is on screen ──
   let running = false, last = 0;
@@ -446,21 +456,29 @@
     requestAnimationFrame(frame);
   }
   function start() { if (running || still) return; running = true; last = performance.now(); requestAnimationFrame(frame); }
-  new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else running = false; }).observe(box);
-  new ResizeObserver(() => {
+  if (opt.active) {
+    const check = () => { if (opt.active()) start(); else running = false; };
+    new MutationObserver(check).observe(box, { attributes: true, attributeFilter: ['class'] });
+    check();
+  } else new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else running = false; }).observe(box);
+  const fitBox = () => {
     size();
     r.x = clamp(r.x || W * 0.25, margin(), W - margin());
     if (r.mode !== 'held' && r.mode !== 'fall') r.y = groundY(r.d);
     for (const c of lying) c.x = clamp(c.x, margin(), W - margin());
     render();
-  }).observe(box);
+  };
+  new ResizeObserver(fitBox).observe(box);
+  addEventListener('resize', fitBox); // a scaled stage changes size without the box resizing
 
   size();
   r.x = clamp(W * 0.25, margin(), W - margin()); r.y = groundY(r.d);
   rest(1, 2);
   render();
-  if (still) { // reduced motion: it sits quietly, but can still be picked up and put down
+  if (still && interactive) { // reduced motion: it sits quietly, but can still be picked up and put down
     addEventListener('pointermove', () => { if (r.mode === 'held') { r.x = clamp(pointer.x, 0, W); r.y = clamp(pointer.y, 0, groundY(r.d) - HANG * S); render(); } });
     addEventListener('pointerup', () => { r.mode = 'rest'; r.y = groundY(r.d); r.x = clamp(r.x, margin(), W - margin()); render(); });
   }
-})();
+};
+
+mountRabbit(document.querySelector('.member'));

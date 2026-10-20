@@ -241,6 +241,14 @@
   }
   const togglePlay = () => setPlay(!playing);
 
+  // The site's jade rabbit also lives at the bottom of the membership slide, just to watch.
+  const memberSlide = document.querySelector('.s-member');
+  window.mountRabbit?.(memberSlide, {
+    scale: () => (document.body.classList.contains('portrait') ? 2.6 : 2.3),
+    active: () => memberSlide.classList.contains('on'),
+    interactive: false,
+  });
+
   // The home page puts this embed into fullscreen from its own buttons and tells us so.
   window.TTslides = {
     setFull(on) { fullFromParent = on; syncFs(); },

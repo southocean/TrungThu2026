@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=Playfair+Display:wght@900&display=swap">
-  <link rel="stylesheet" href="base.css?v=8">
-  <link rel="stylesheet" href="slides.css?v=8">
+  <link rel="stylesheet" href="base.css?v=9">
+  <link rel="stylesheet" href="slides.css?v=9">
 </head>
 <body>
   <main class="viewer" aria-roledescription="trình chiếu" aria-label="Slideshow Trung Thu 2026">
@@ -174,17 +174,20 @@
         <svg class="i-play" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z" fill="currentColor"/></svg>
         <svg class="i-pause" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h4v16H7zM13 4h4v16h-4z" fill="currentColor"/></svg>
       </button>
+      <div class="vol-wrap">
+      <div class="vol" id="vol"><input type="range" id="volume" min="0" max="100" step="1" aria-label="Âm lượng"></div>
       <button type="button" id="music" aria-label="Bật nhạc" aria-pressed="false" hidden>
         <svg class="i-on" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l11-2v12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></svg>
         <svg class="i-off" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><g opacity=".55"><path d="M9 18V6l11-2v12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></g><path d="M3 3l18 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
       </button>
+      </div>
       <button type="button" id="fs" aria-label="Toàn màn hình"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     </nav>
     <div class="bar" aria-hidden="true"><i id="bar"></i></div>
     <p class="sr-only" aria-live="polite" id="live"></p>
   </main>
 
-  <script src="data.js?v=8"></script>
-  <script src="slides.js?v=8"></script>
+  <script src="data.js?v=9"></script>
+  <script src="slides.js?v=9"></script>
 </body>
 </html>

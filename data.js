@@ -35,6 +35,5 @@ window.TT = {
     { title: 'Rước đèn tháng Tám', src: 'audio/ruoc-den-thang-tam.mp3', youtube: 'iylStdeois0' },        // Đồ Rê Mí
     { title: 'Chiếc đèn ông sao', src: 'audio/chiec-den-ong-sao.mp3', youtube: 'ldEYSFxFEng' },          // LALATV
     { title: 'Thằng Cuội', src: 'audio/thang-cuoi.mp3', youtube: 'NhqhawkYquE' },                        // Đồ Rê Mí
-    { title: 'Chiếc đèn ông sao (Đội Sơn Ca)', src: 'audio/chiec-den-ong-sao-son-ca.mp3', youtube: 'TcKxFTy2iLU' }, // thu thanh trước 1975
   ],
 };

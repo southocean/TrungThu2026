@@ -3,7 +3,7 @@
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const embed = new URLSearchParams(location.search).has('embed');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const DELAY = 9000;
+  const DELAY = 20000; // autoplay: slow, the slideshow loops in the background of the event
   if (embed) document.body.classList.add('embed');
   const sticker = id => `<svg class="stk"><use href="img/stickers.svg#${id}"/></svg>`;
 
@@ -58,6 +58,9 @@
     if (!list.length) return api;
 
     const audio = new Audio();
+    let volume = 0.8;
+    try { const v = parseFloat(localStorage.getItem('tt-volume')); if (v >= 0 && v <= 1) volume = v; } catch {}
+    audio.volume = volume;
     audio.preload = embed ? 'metadata' : 'auto'; // the home-page embed shouldn't pull songs up front
     let i = 0, source = 'file'; // which engine the current song is using
     let yt = null, ytReady = null, box = null;
@@ -84,7 +87,7 @@
             width: '100%', height: '100%',
             playerVars: { playsinline: 1, rel: 0 },
             events: {
-              onReady: () => { box.querySelector('iframe').tabIndex = -1; resolve(); },
+              onReady: () => { box.querySelector('iframe').tabIndex = -1; yt.setVolume(volume * 100); resolve(); },
               onStateChange: e => { if (e.data === YT.PlayerState.ENDED) next(); },
               onError: () => skip(), // video removed or embedding turned off
             },
@@ -140,6 +143,13 @@
       label();
     }
     api.toggle = () => { if (!api.ready) return; api.userOff = api.on; set(!api.on); };
+    api.volume = () => volume;
+    api.setVolume = v => {
+      volume = v;
+      audio.volume = v;
+      yt?.setVolume(v * 100);
+      try { localStorage.setItem('tt-volume', String(v)); } catch {}
+    };
 
     // First click, tap or key anywhere in the slideshow starts the music, unless the visitor
     // has switched it off. The note button and M are left to toggle it themselves.
@@ -165,10 +175,10 @@
     });
     cur = i;
     $('count').textContent = `${i + 1} / ${N}`;
-    $('bar').style.width = `${((i + 1) / N) * 100}%`;
     if (announce) $('live').textContent = `Slide ${i + 1} / ${N}: ${slides[i].querySelector('h1, h2').textContent}`;
     if (!embed) history.replaceState(null, '', `#${i + 1}`);
     if (timer) restart();
+    paintBar();
   }
   const next = () => go(cur + 1);
   const prev = () => go(cur - 1);
@@ -176,9 +186,26 @@
   // Autoplay (loops; good for leaving on the projector)
   let timer = null;
   function restart() { clearInterval(timer); timer = setInterval(next, DELAY); }
+
+  // Progress bar. Stepping by hand it jumps to the slide's share of the show; while
+  // autoplaying it creeps steadily through the slide like a video timeline, then wraps.
+  function paintBar() {
+    const bar = $('bar');
+    if (timer && !reduced) {
+      bar.style.transition = 'none';
+      bar.style.width = `${(cur / N) * 100}%`;
+      void bar.offsetWidth; // commit the start position before animating
+      bar.style.transition = `width ${DELAY}ms linear`;
+      bar.style.width = `${((cur + 1) / N) * 100}%`;
+    } else {
+      bar.style.transition = '';
+      bar.style.width = `${((cur + 1) / N) * 100}%`;
+    }
+  }
   function setPlay(on) {
     clearInterval(timer); timer = null;
     if (on) restart();
+    if (cur >= 0) paintBar();
     $('play').setAttribute('aria-pressed', String(on));
     $('play').setAttribute('aria-label', on ? 'Tạm dừng' : 'Tự chạy');
     document.body.classList.toggle('playing', on);
@@ -196,8 +223,26 @@
   $('fs').onclick = toggleFs;
   $('music').onclick = () => music.toggle();
 
+  // Volume: hover the note button for a moment (or tap it on a phone) and a vertical
+  // slider opens above it.
+  {
+    const wrap = $('music').parentElement, range = $('volume');
+    range.value = Math.round(music.volume?.() * 100 || 80);
+    let openT, closeT;
+    const open = () => { clearTimeout(closeT); wrap.classList.add('open'); };
+    const close = ms => { clearTimeout(openT); clearTimeout(closeT); closeT = setTimeout(() => { wrap.classList.remove('open'); if (document.activeElement === range) range.blur(); }, ms); };
+    wrap.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { clearTimeout(closeT); openT = setTimeout(open, 400); } });
+    wrap.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') close(300); });
+    $('music').addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') { open(); close(4000); } });
+    range.addEventListener('input', () => { music.setVolume?.(range.value / 100); if (!wrap.matches(':hover')) close(4000); });
+    wrap.addEventListener('focusin', open);
+    wrap.addEventListener('focusout', () => close(300));
+    addEventListener('pointerdown', e => { if (!wrap.contains(e.target)) close(0); });
+  }
+
   addEventListener('keydown', e => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.target.id === 'volume' && /^(Arrow|Page|Home|End)/.test(e.key)) return; // the slider's own keys
     const k = e.key;
     if (['ArrowRight', 'ArrowDown', 'PageDown', 'Enter', ' '].includes(k)) {
       if ((k === 'Enter' || k === ' ') && e.target.closest('button, a')) return;
@@ -235,7 +280,7 @@
     document.body.classList.remove('idle');
     clearTimeout(idle);
     idle = setTimeout(() => {
-      if (!document.querySelector('.controls:hover, .controls :focus-visible')) document.body.classList.add('idle');
+      if (!document.querySelector('.controls:hover, .controls :focus-visible, .vol-wrap.open')) document.body.classList.add('idle');
     }, 2500);
   }
   ['mousemove', 'pointerdown', 'focusin'].forEach(t => addEventListener(t, wake));

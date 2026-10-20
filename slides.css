@@ -263,8 +263,8 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
 .portrait .e-tale { font-size: 40px; padding: 0 40px; }
 .portrait .e-contact { flex-direction: column; gap: 10px; font-size: 34px; }
 .controls [hidden] { display: none; }
-.rabbit-pen { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; transition: opacity .6s; }
-body:not(.playing) .rabbit-pen { opacity: 0; }
+.rabbit-pen { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+.rabbit-pen:not(.out) { visibility: hidden; } /* until it hops in on the first play */
 
 /* YouTube music player: YouTube requires the player to stay visible (at least 200×200),
    so it shows as a small card in the corner while a YouTube song plays. */

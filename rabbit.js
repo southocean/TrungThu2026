@@ -1,5 +1,6 @@
 // Thỏ ngọc: a jade rabbit that lives at the bottom of a box (the membership box on the site,
-// and, look-only, along the bottom of the slideshow while it plays).
+// and, look-only, along the bottom of the slideshow: it hops in from the side the first time
+// the show plays, freezes mid-action on pause and carries on when play resumes).
 // It rests and fidgets (blinks, glances, twitches its ears, grooms, sniffs, stands up to look
 // around), takes one or two short hops at a time, and now and then digs up a carrot and eats
 // it. Press and hold on it to pick it up by the scruff; it dangles from the pointer until you
@@ -10,6 +11,7 @@
 //   active   when given, the rabbit only runs while this returns true (re-checked when the
 //            class of opt.watch, default the box, changes); otherwise it runs while on screen
 //   interactive  false for a rabbit you can only watch
+//   enter    true: stay out of sight until the first start, then hop in from a side
 window.mountRabbit = (box, opt = {}) => {
   if (!box) return;
   const interactive = opt.interactive !== false;
@@ -19,6 +21,7 @@ window.mountRabbit = (box, opt = {}) => {
   cv.className = 'rabbit-pen';
   cv.setAttribute('aria-hidden', 'true');
   box.append(cv);
+  if (!opt.enter) cv.classList.add('out'); // .out = on stage and visible
   const g = cv.getContext('2d');
 
   const TAU = Math.PI * 2;
@@ -75,7 +78,7 @@ window.mountRabbit = (box, opt = {}) => {
     let dist = rand(16, 28) * S;
     if (r.chaseX != null) dist = Math.min(dist * 1.2, Math.abs(r.chaseX - r.x));
     let to = r.x + r.face * dist;
-    if (to < m || to > W - m) { r.face *= -1; to = clamp(r.x + r.face * dist, m, W - m); }
+    if (!r.entering && (to < m || to > W - m)) { r.face *= -1; to = clamp(r.x + r.face * dist, m, W - m); }
     r.hopFrom = r.x; r.hopTo = to; r.hopT = 0;
   }
   function eatLying(dir, c) {
@@ -202,7 +205,7 @@ window.mountRabbit = (box, opt = {}) => {
           const arrived = r.chaseX != null && Math.abs(r.chaseX - r.x) < 6 * S;
           if (r.hops > 0 && !arrived) { r.pause = rand(0.12, 0.3); nextHop(); }
           else {
-            r.chaseX = null;
+            r.chaseX = null; r.entering = false;
             const c = lying.find(c => Math.abs(c.x - mouthX()) < 22 * S);
             if (c) eatLying(r.face, c);
             else rest();
@@ -455,7 +458,20 @@ window.mountRabbit = (box, opt = {}) => {
     render();
     requestAnimationFrame(frame);
   }
-  function start() { if (running || still) return; running = true; last = performance.now(); requestAnimationFrame(frame); }
+  let entered = false;
+  function enterStage() { // from just off one side, hop in to a spot not far from that edge
+    entered = true;
+    const fromLeft = Math.random() < 0.5;
+    r.x = fromLeft ? -50 * S : W + 50 * S;
+    r.y = groundY(r.d); r.entering = true;
+    startHops(99, fromLeft ? 1 : -1, fromLeft ? rand(margin() + 20 * S, W * 0.3) : rand(W * 0.7, W - margin() - 20 * S));
+    cv.classList.add('out');
+  }
+  function start() {
+    if (running || still) return;
+    if (opt.enter && !entered) enterStage();
+    running = true; last = performance.now(); requestAnimationFrame(frame);
+  }
   if (opt.active) {
     const check = () => { if (opt.active()) start(); else running = false; };
     new MutationObserver(check).observe(opt.watch || box, { attributes: true, attributeFilter: ['class'] });

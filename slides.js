@@ -7,14 +7,32 @@
   if (embed) document.body.classList.add('embed');
   const sticker = id => `<svg class="stk"><use href="img/stickers.svg#${id}"/></svg>`;
 
+  const { pick } = I18N;
+
   // Programme slides from data.js
-  document.querySelectorAll('[data-agenda]').forEach(s => {
-    const [a, b] = s.dataset.agenda.split('-').map(Number);
-    s.querySelector('.prog').innerHTML = TT.agenda.slice(a, b).map(x => `
-      <li><time>${x.time}</time><div><h3>${esc(x.title)}</h3>
-      ${x.items.length ? `<ul>${x.items.map(i => `<li><span class="li-stk">${i.s.map(sticker).join('')}</span><span>${esc(i.t)}</span></li>`).join('')}</ul>` : ''}</div>
-      <span class="row-stk">${x.stickers.map(sticker).join('')}</span></li>`).join('');
-  });
+  function renderProgramme() {
+    document.querySelectorAll('[data-agenda]').forEach(s => {
+      const [a, b] = s.dataset.agenda.split('-').map(Number);
+      s.querySelector('.prog').innerHTML = TT.agenda.slice(a, b).map(x => `
+        <li class="rise"><time>${x.time}</time><div><h3>${esc(pick(x.title))}</h3>
+        ${x.items.length ? `<ul>${x.items.map(i => `<li><span class="li-stk">${i.s.map(sticker).join('')}</span><span>${esc(pick(i.t))}</span></li>`).join('')}</ul>` : ''}</div>
+        <span class="row-stk">${x.stickers.map(sticker).join('')}</span></li>`).join('');
+    });
+  }
+  I18N.apply();
+  renderProgramme();
+
+  // Language: the flag button cycles Tiếng Việt → Svenska → English (also the L key).
+  const langBtn = $('lang');
+  const markLang = () => {
+    const now = I18N.LANGS.find(l => l.code === I18N.lang), nxt = I18N.LANGS.find(l => l.code === I18N.next());
+    langBtn.innerHTML = I18N.FLAGS[now.code];
+    langBtn.title = `${now.name} → ${nxt.name} (L)`;
+    langBtn.setAttribute('aria-label', `${now.name} → ${nxt.name}`);
+  };
+  markLang();
+  langBtn.onclick = () => I18N.set(I18N.next());
+  addEventListener('langchange', () => { renderProgramme(); markLang(); });
 
   // Entrance animation hooks
   document.querySelectorAll('.t-body > *, .about-text > *, .acts > li, .m-text > *, .prog > li, .e-body > *').forEach(el => el.classList.add('rise'));
@@ -253,6 +271,7 @@
     else if (k === 'f' || k === 'F') toggleFs();
     else if (k === 'p' || k === 'P') togglePlay();
     else if (k === 'm' || k === 'M') music.toggle();
+    else if (k === 'l' || k === 'L') I18N.set(I18N.next());
     else if (/^[1-9]$/.test(k)) go(Number(k) - 1);
     else return;
     wake();

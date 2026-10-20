@@ -170,6 +170,7 @@ html, body { height: 100%; overflow: hidden; background: #000; }
 .controls .count { min-width: 64px; text-align: center; font-size: 15px; font-variant-numeric: tabular-nums; color: #ddd; }
 .controls .home { margin-right: 4px; border-right: 1px solid rgba(255, 255, 255, .14); border-radius: 50% 0 0 50%; }
 #play .i-pause, #play[aria-pressed="true"] .i-play { display: none; }
+.controls .lang-btn svg { display: block; width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 255, 255, .5); }
 #play[aria-pressed="true"] .i-pause { display: block; }
 #music .i-on, #music[aria-pressed="true"] .i-off { display: none; }
 

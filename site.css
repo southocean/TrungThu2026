@@ -31,6 +31,19 @@ h2 { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 5vw, 
 }
 @media (max-width: 400px) { .top nav a:nth-child(2) { display: none; } }
 
+/* Language flags */
+.langs { display: flex; gap: 6px; margin-left: 4px; }
+.langs button {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%; overflow: hidden; cursor: pointer;
+  border: 2px solid transparent; background: none; opacity: .55; transition: opacity .15s, border-color .15s, transform .15s;
+}
+.langs button svg { display: block; width: 100%; height: 100%; }
+.langs button:hover { opacity: .9; transform: scale(1.08); }
+.langs button[aria-pressed="true"] { opacity: 1; border-color: var(--gold); }
+.top { justify-content: flex-start; }
+.top nav { margin-left: auto; }
+@media (max-width: 760px) { .langs { gap: 4px; } .langs button { width: 24px; height: 24px; } }
+
 /* Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -58,8 +71,29 @@ h2 { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 5vw, 
 
 /* Hero */
 .hero { position: relative; overflow: hidden; min-height: min(88vh, 820px); display: flex; align-items: center; padding: 120px 20px 80px; }
-.hero-sky { position: absolute; inset: 0; z-index: 0; }
-.hero .moon, .hero .hang { z-index: 1; }
+.hero-sky {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse at 70% 10%, #2a3a8c 0%, transparent 60%),
+    radial-gradient(ellipse at 10% 100%, #3a1450 0%, transparent 55%),
+    linear-gradient(180deg, #0b1233 0%, #121d52 60%, #1d1450 100%);
+}
+/* Stars for the whole page (site.js): fixed layers that drift even less than the moon */
+.starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.starfield > div { position: absolute; left: 0; top: 0; width: 100%; will-change: transform; }
+.starfield canvas { display: block; width: 100%; }
+.starfield i {
+  position: absolute; width: 3px; height: 3px; margin: -1.5px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, .8), 0 0 14px 2px rgba(255, 220, 150, .35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .starfield i { animation: twinkle var(--t, 3s) ease-in-out var(--d, 0s) infinite alternate; }
+}
+@keyframes twinkle { from { opacity: .15; transform: scale(.6); } to { opacity: 1; transform: scale(1.15); } }
+.hero .hang { z-index: 1; }
+/* The moon hangs in the sky of the whole page: fixed to the screen, drifting only a little as
+   you scroll (site.js), behind the content and the rising lanterns. */
+.hero .hero-moon { position: fixed; z-index: 0; will-change: transform, opacity; }
 .hero::after { /* soft hill of warm light at the bottom */
   content: ""; position: absolute; inset: auto -10% -40% -10%; height: 60%;
   background: radial-gradient(ellipse at 50% 0%, rgba(224, 38, 47, .35), transparent 65%);

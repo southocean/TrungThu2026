@@ -8,9 +8,9 @@
   <link rel="icon" href="img/star.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap">
-  <link rel="stylesheet" href="base.css">
-  <link rel="stylesheet" href="slides.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=Playfair+Display:wght@900&display=swap">
+  <link rel="stylesheet" href="base.css?v=7">
+  <link rel="stylesheet" href="slides.css?v=7">
 </head>
 <body>
   <main class="viewer" aria-roledescription="trình chiếu" aria-label="Slideshow Trung Thu 2026">
@@ -19,14 +19,13 @@
       <!-- 1 · Title -->
       <section class="slide s-title sky" aria-roledescription="slide">
         <div class="moon s-moon"></div>
-        <div class="hang" style="left:110px;--string:60px;--dur:4.8s"><svg width="150" height="255"><use href="img/deco.svg#lantern"/></svg></div>
-        <div class="hang gold" style="left:330px;--string:40px;--dur:5.6s"><svg width="110" height="187"><use href="img/deco.svg#lantern-gold"/></svg></div>
-        <div class="hang" style="left:1780px;--string:120px;--dur:6.2s"><svg width="110" height="110"><use href="img/deco.svg#star"/></svg></div>
+        <div class="hang h1"><svg width="150" height="255"><use href="img/deco.svg#lantern"/></svg></div>
+        <div class="hang gold h2"><svg width="110" height="187"><use href="img/deco.svg#lantern-gold"/></svg></div>
+        <div class="hang h3"><svg width="110" height="110"><use href="img/deco.svg#star"/></svg></div>
         <div class="t-body">
           <p class="kicker"><img src="img/logo-hnvs.png" alt="" width="72" height="60"> Hội Người Việt Stockholm</p>
           <h1>Tết Trung Thu<span>2026</span></h1>
-          <p class="t-when">Thứ Bảy 24.10 <i>·</i> 14:00 <i>·</i> Danderydsgården</p>
-          <p class="t-also">Đại hội Người Việt Stockholm và các vùng phụ cận · <span lang="sv">Vietnamesiska Föreningens årsmöte</span></p>
+          <p class="t-when">Thứ Bảy 24.10 <i>·</i> 14:00 <i>·</i> <span class="nowrap">Danderydsgården</span></p>
         </div>
       </section>
 
@@ -35,7 +34,7 @@
         <div class="about-text">
           <img class="about-logo" src="img/logo-hnvs.png" alt="" width="144" height="119">
           <h2>Hội Người Việt Stockholm</h2>
-          <p class="sv" lang="sv">Vietnamesiska Föreningen i Stockholm och Omnejd</p>
+          <p class="sv" lang="sv">Vietnamesiska Föreningen i Stockholm</p>
           <p class="big">Cùng nhau giữ Tết, giữ Trung Thu,<br>giữ tiếng Việt nơi xứ người.</p>
         </div>
         <div class="about-photos">
@@ -43,18 +42,20 @@
           <img class="p2" src="img/hoi-truong.jpg" alt="Thành viên Hội trước một toà nhà">
           <img class="p3" src="img/tet-2.jpg" alt="Hội bên quầy Tết 2026">
         </div>
+        <svg class="float f-a1"><use href="img/stickers.svg#starlantern"/></svg>
+        <svg class="float f-a2"><use href="img/stickers.svg#lion"/></svg>
       </section>
 
       <!-- 3 · Activities -->
       <section class="slide s-acts" aria-roledescription="slide">
         <h2>Hoạt động của Hội</h2>
         <ul class="acts">
-          <li><img src="img/xuan-2026.jpg" alt=""><span>Đón Xuân</span></li>
-          <li><img src="img/long-den.jpg" alt=""><span>Trung Thu</span></li>
-          <li><img src="img/be-san-khau.jpg" alt=""><span>Thiếu nhi</span></li>
-          <li><img src="img/sach.jpg" alt=""><span>Sách tiếng Việt</span></li>
-          <li><img src="img/tet-1.jpg" alt=""><span>Ẩm thực</span></li>
-          <li><img src="img/dsq-1.jpg" alt=""><span>Giao lưu</span></li>
+          <li><img src="img/xuan-2026.jpg" alt=""><span>Đón Xuân</span><svg class="tile-stk"><use href="img/stickers.svg#lion"/></svg></li>
+          <li><img src="img/long-den.jpg" alt=""><span>Trung Thu</span><svg class="tile-stk"><use href="img/stickers.svg#starlantern"/></svg></li>
+          <li><img src="img/be-san-khau.jpg" alt=""><span>Thiếu nhi</span><svg class="tile-stk"><use href="img/stickers.svg#rabbit"/></svg></li>
+          <li><img src="img/sach.jpg" alt=""><span>Sách tiếng Việt</span><svg class="tile-stk"><use href="img/stickers.svg#book"/></svg></li>
+          <li><img src="img/tet-1.jpg" alt=""><span>Ẩm thực</span><svg class="tile-stk"><use href="img/stickers.svg#mooncake"/></svg></li>
+          <li><img src="img/dsq-1.jpg" alt=""><span>Giao lưu</span><svg class="tile-stk"><use href="img/stickers.svg#dance"/></svg></li>
         </ul>
       </section>
 
@@ -66,6 +67,7 @@
           <dl>
             <div><dt>Swish</dt><dd>123 664 15 67</dd></div>
             <div><dt>Bankgiro</dt><dd>138-2456</dd></div>
+            <div class="m-web"><dt>Website</dt><dd>hoinguoivietstockholm.org</dd></div>
           </dl>
         </div>
         <img class="m-qr" src="img/swish-qr.jpg" alt="Mã QR Swish, số 123 664 15 67">
@@ -75,20 +77,84 @@
       <section class="slide s-prog" aria-roledescription="slide" data-agenda="0-3">
         <h2>Chương trình <small>1/2</small></h2>
         <ol class="prog"></ol>
+        <svg class="float f-p1"><use href="img/stickers.svg#starlantern"/></svg>
+        <svg class="float f-p2"><use href="img/stickers.svg#carp"/></svg>
       </section>
       <section class="slide s-prog" aria-roledescription="slide" data-agenda="3-7">
         <h2>Chương trình <small>2/2</small></h2>
         <ol class="prog"></ol>
+        <svg class="float f-p3"><use href="img/stickers.svg#mooncake"/></svg>
+        <svg class="float f-p4"><use href="img/stickers.svg#banhdeo"/></svg>
+        <svg class="float f-p5"><use href="img/stickers.svg#tea"/></svg>
       </section>
 
-      <!-- 7 · Closing -->
+      <!-- 7 · Closing: Chú Cuội under the banyan on the moon, Chị Hằng and the jade rabbit -->
       <section class="slide s-end sky" aria-roledescription="slide">
-        <div class="moon e-moon"></div>
-        <div class="hang" style="left:200px;--string:80px;--dur:5s"><svg width="120" height="204"><use href="img/deco.svg#lantern"/></svg></div>
-        <div class="hang" style="left:1600px;--string:40px;--dur:4.4s"><svg width="120" height="120"><use href="img/deco.svg#star"/></svg></div>
-        <div class="hang gold" style="left:1700px;--string:220px;--dur:6s"><svg width="90" height="153"><use href="img/deco.svg#lantern-gold"/></svg></div>
+        <div class="e-moonwrap">
+          <div class="moon e-moon"></div>
+          <svg class="e-cuoi" viewBox="0 0 400 400" aria-hidden="true">
+            <defs><clipPath id="moonclip"><circle cx="200" cy="200" r="200"/></clipPath></defs>
+            <g clip-path="url(#moonclip)" fill="#b8721a" opacity=".5">
+              <!-- banyan tree -->
+              <path d="M150 330c8-40 10-80 4-120h36c-6 40-4 80 4 120z"/>
+              <path d="M160 250c-20 10-30 40-32 80M186 250c22 12 30 40 30 80M170 220c-4 30-2 70 0 110" stroke="#b8721a" stroke-width="5" fill="none"/>
+              <circle cx="110" cy="180" r="56"/><circle cx="170" cy="130" r="64"/><circle cx="240" cy="170" r="56"/>
+              <circle cx="190" cy="200" r="50"/><circle cx="80" cy="220" r="36"/><circle cx="270" cy="220" r="34"/>
+              <!-- Chú Cuội sitting by the trunk, knees up -->
+              <circle cx="232" cy="282" r="14"/>
+              <path d="M220 296c-6 14-6 30 0 40h34c10-4 18-14 18-26l-14-2c0 8-4 14-10 16-2-12-8-24-28-28z"/>
+              <path d="M244 300l22-18" stroke="#b8721a" stroke-width="7" stroke-linecap="round"/>
+              <path d="M40 336c80-10 240-10 330 0v80H40z"/>
+            </g>
+          </svg>
+          <svg class="e-rabbit"><use href="img/stickers.svg#rabbit"/></svg>
+        </div>
+
+        <svg class="e-hang" viewBox="0 0 420 320" aria-hidden="true">
+          <g fill="none" stroke-linecap="round">
+            <path stroke="#ff9dbb" stroke-width="7" d="M250 120C200 170 140 150 90 190S10 260 0 300">
+              <animate attributeName="d" dur="5s" repeatCount="indefinite"
+                values="M250 120C200 170 140 150 90 190S10 260 0 300;M250 120C200 150 140 190 90 180S20 280 0 290;M250 120C200 170 140 150 90 190S10 260 0 300"/>
+            </path>
+            <path stroke="#ffe08a" stroke-width="5" d="M262 130C230 200 180 210 140 250S70 300 40 320">
+              <animate attributeName="d" dur="6.5s" repeatCount="indefinite"
+                values="M262 130C230 200 180 210 140 250S70 300 40 320;M262 130C230 180 170 230 140 240S80 310 40 310;M262 130C230 200 180 210 140 250S70 300 40 320"/>
+            </path>
+          </g>
+          <path fill="#1b1b2f" d="M264 60C246 70 244 96 234 118S206 156 190 186C212 168 232 146 246 122S262 86 274 68z">
+            <animate attributeName="d" dur="5.5s" repeatCount="indefinite"
+              values="M264 60C246 70 244 96 234 118S206 156 190 186C212 168 232 146 246 122S262 86 274 68z;M264 60C248 72 240 98 228 120S196 154 178 178C204 166 228 148 242 124S262 86 274 68z;M264 60C246 70 244 96 234 118S206 156 190 186C212 168 232 146 246 122S262 86 274 68z"/>
+          </path>
+          <path d="M268 96c20 30 26 70 4 104-18 26-60 48-120 60 44-26 76-54 90-86 12-28 12-54 26-78z" fill="#ffe3ec"/>
+          <path d="M268 96c-12 26-14 52-26 80-10 22-30 40-54 56 40-10 68-30 82-56 14-26 10-56-2-80z" fill="#ff9dbb"/>
+          <path d="M262 104l20-2-6 22z" fill="#e0262f"/>
+          <path d="M270 110c18 4 36 2 52-10" stroke="#ffe0c4" stroke-width="9" fill="none" stroke-linecap="round"/>
+          <path d="M322 100v18" stroke="#ffd77a" stroke-width="2"/>
+          <ellipse cx="322" cy="130" rx="12" ry="14" fill="#e0262f"/>
+          <ellipse cx="322" cy="130" rx="6" ry="14" fill="none" stroke="#ffd77a" stroke-opacity=".6" stroke-width="2"/>
+          <circle cx="276" cy="74" r="18" fill="#ffe0c4"/>
+          <!-- hair: crown and fringe swept to the side, a high bun with a lotus flower and gold pin -->
+          <path d="M257 80C252 60 266 50 280 52S298 62 294 72C290 64 282 60 274 62C268 66 262 72 257 80z" fill="#1b1b2f"/>
+          <path d="M262 84c-4 6-4 14 0 20 2-8 3-14 6-20z" fill="#1b1b2f"/>
+          <ellipse cx="270" cy="46" rx="12" ry="10" fill="#1b1b2f"/>
+          <ellipse cx="262" cy="40" rx="7" ry="6" fill="#1b1b2f"/>
+          <path d="M276 40l18-12" stroke="#ffc94a" stroke-width="3" stroke-linecap="round"/>
+          <path d="M292 30v10" stroke="#ffc94a" stroke-width="1.5"/><circle cx="292" cy="42" r="2.6" fill="#e0262f"/>
+          <g transform="translate(280 52)">
+            <circle r="4.5" cx="-5" fill="#ff9dbb"/><circle r="4.5" cx="5" fill="#ff9dbb"/><circle r="4.5" cy="-5" fill="#ffc2d4"/><circle r="4.5" cy="4" fill="#ff7aa2"/><circle r="2.4" fill="#ffd34d"/>
+          </g>
+          <!-- face: closed smiling eye with lashes, blush, red lips -->
+          <path d="M280 75q3-3 6 0" stroke="#1b1b2f" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M281 74l-1-3M284 73l0-3" stroke="#1b1b2f" stroke-width="1.2" stroke-linecap="round"/>
+          <ellipse cx="285" cy="81" rx="4" ry="2.4" fill="#ff9dbb" opacity=".75"/>
+          <path d="M283 86q3 2.5 6 0" stroke="#d2264f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        </svg>
+
+        <div class="sky-lanterns" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
         <div class="e-body">
           <h2>Trung Thu vui vẻ!</h2>
+          <p class="e-tale">Cảm ơn cả nhà đã đến – hẹn gặp lại mùa trăng sau!</p>
           <ul class="e-contact">
             <li>hoinguoivietstockholm.org</li>
             <li>info@hoinguoivietstockholm.org</li>
@@ -108,13 +174,17 @@
         <svg class="i-play" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z" fill="currentColor"/></svg>
         <svg class="i-pause" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h4v16H7zM13 4h4v16h-4z" fill="currentColor"/></svg>
       </button>
+      <button type="button" id="music" aria-label="Bật nhạc" aria-pressed="false" hidden>
+        <svg class="i-on" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l11-2v12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></svg>
+        <svg class="i-off" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><g opacity=".55"><path d="M9 18V6l11-2v12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="17.5" cy="16" r="2.6" fill="currentColor"/></g><path d="M3 3l18 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
       <button type="button" id="fs" aria-label="Toàn màn hình"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     </nav>
     <div class="bar" aria-hidden="true"><i id="bar"></i></div>
     <p class="sr-only" aria-live="polite" id="live"></p>
   </main>
 
-  <script src="data.js"></script>
-  <script src="slides.js"></script>
+  <script src="data.js?v=7"></script>
+  <script src="slides.js?v=7"></script>
 </body>
 </html>

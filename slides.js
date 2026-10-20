@@ -48,7 +48,7 @@
 
   // Landscape 1920×1080 stage; on a portrait phone the slides re-flow onto a 1080×1920 stage.
   function fit() {
-    const portrait = !embed && innerHeight > innerWidth;
+    const portrait = innerHeight > innerWidth; // the embed is always wide, unless it's fullscreen on an upright phone
     document.body.classList.toggle('portrait', portrait);
     // Portrait stretches to the phone's real height (most phones are taller than 9:16);
     // slide content stays in a centred 1080×1920 frame and backgrounds fill the rest.
@@ -161,6 +161,7 @@
       label();
     }
     api.toggle = () => { if (!api.ready) return; api.userOff = api.on; set(!api.on); };
+    api.start = () => { if (api.ready && !api.on && !api.userOff) set(true); };
     api.volume = () => volume;
     api.setVolume = v => {
       volume = v;
@@ -235,6 +236,12 @@
     document.body.classList.toggle('playing', on);
   }
   const togglePlay = () => setPlay(!playing);
+
+  // The home page puts this embed into fullscreen from its own buttons and tells us so.
+  window.TTslides = {
+    setFull(on) { document.body.classList.toggle('full', on); fit(); },
+    fullscreenStart() { this.setFull(true); music.start(); if (!playing && !reduced) setPlay(true); },
+  };
 
   function toggleFs() {
     if (document.fullscreenElement) document.exitFullscreen();

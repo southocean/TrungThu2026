@@ -1,5 +1,5 @@
-html, body { height: 100%; overflow: hidden; background: #000; }
-.viewer { position: fixed; inset: 0; display: grid; place-items: center; background: #000; user-select: none; -webkit-user-select: none; }
+html, body { height: 100%; overflow: hidden; background: #0b1233; }
+.viewer { position: fixed; inset: 0; display: grid; place-items: center; background: #0b1233; /* any letterbox bars blend with the night sky */ user-select: none; -webkit-user-select: none; }
 
 /* 1920×1080 stage, scaled to fit by slides.js */
 .stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; background: var(--night); }
@@ -186,7 +186,7 @@ html, body { height: 100%; overflow: hidden; background: #000; }
 .vol::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 14px; } /* keeps hover alive across the gap */
 .vol-wrap.open .vol { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .2s, transform .2s; }
 .vol input { display: block; writing-mode: vertical-lr; direction: rtl; width: 26px; height: 120px; margin: 0; accent-color: var(--gold); cursor: pointer; }
-.embed .vol input { height: 90px; }
+.embed:not(.full) .vol input { height: 90px; }
 #music[aria-pressed="true"] .i-on { display: block; color: var(--gold); }
 .idle .controls { opacity: 0; transform: translate(-50%, 20px); pointer-events: none; }
 .idle { cursor: none; }
@@ -194,11 +194,11 @@ html, body { height: 100%; overflow: hidden; background: #000; }
 .bar { position: fixed; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255, 255, 255, .08); z-index: 4; }
 .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold), var(--red)); transition: width .4s; }
 
-/* Embedded on the home page: smaller controls, no home button */
-.embed .controls { bottom: 10px; padding: 3px; }
-.embed .controls button { width: 36px; height: 36px; }
+/* Embedded on the home page: smaller controls and no home button, until it goes fullscreen */
 .embed .controls .home { display: none; }
-.embed .controls .count { min-width: 50px; font-size: 13px; }
+.embed:not(.full) .controls { bottom: 10px; padding: 3px; }
+.embed:not(.full) .controls button { width: 36px; height: 36px; }
+.embed:not(.full) .controls .count { min-width: 50px; font-size: 13px; }
 
 /* ── Portrait (phones held upright): 1080×1920 stage, slides re-flowed ── */
 .portrait .stage { width: 1080px; height: 1920px; }

@@ -15,6 +15,22 @@
   const frame = document.querySelector('.embed iframe');
   frame.src = `slides.html?embed&lang=${I18N.lang}`;
 
+  // The slideshow buttons put the embedded slideshow into real fullscreen (the whole screen,
+  // no browser bars), starting the music with that same click. Where a page element can't go
+  // fullscreen (iPhone Safari), they open the slideshow page instead.
+  const canFull = !!(frame.requestFullscreen || frame.webkitRequestFullscreen);
+  document.querySelectorAll('[data-fullscreen]').forEach(a => a.addEventListener('click', e => {
+    if (!canFull) return;
+    e.preventDefault();
+    frame.loading = 'eager';
+    Promise.resolve((frame.requestFullscreen || frame.webkitRequestFullscreen).call(frame))
+      .then(() => frame.contentWindow?.TTslides?.fullscreenStart())
+      .catch(() => { location.href = a.href; });
+  }));
+  const onFull = () => frame.contentWindow?.TTslides?.setFull(document.fullscreenElement === frame || document.webkitFullscreenElement === frame);
+  document.addEventListener('fullscreenchange', onFull);
+  document.addEventListener('webkitfullscreenchange', onFull);
+
   const renderAgenda = () => document.getElementById('agenda').innerHTML = TT.agenda.map(a => `
     <li>
       <time>${a.time}</time>

@@ -1,5 +1,5 @@
 // Thỏ ngọc: a jade rabbit that lives at the bottom of a box (the membership box on the site,
-// and, look-only, the membership slide).
+// and, look-only, along the bottom of the slideshow while it plays).
 // It rests and fidgets (blinks, glances, twitches its ears, grooms, sniffs, stands up to look
 // around), takes one or two short hops at a time, and now and then digs up a carrot and eats
 // it. Press and hold on it to pick it up by the scruff; it dangles from the pointer until you
@@ -8,7 +8,7 @@
 // mountRabbit(box, { scale(W), active(), interactive }):
 //   scale    rabbit size for a box this wide (default: 1, or 1.25 on wide boxes)
 //   active   when given, the rabbit only runs while this returns true (re-checked when the
-//            box's class changes); otherwise it runs while the box is on screen
+//            class of opt.watch, default the box, changes); otherwise it runs while on screen
 //   interactive  false for a rabbit you can only watch
 window.mountRabbit = (box, opt = {}) => {
   if (!box) return;
@@ -458,7 +458,7 @@ window.mountRabbit = (box, opt = {}) => {
   function start() { if (running || still) return; running = true; last = performance.now(); requestAnimationFrame(frame); }
   if (opt.active) {
     const check = () => { if (opt.active()) start(); else running = false; };
-    new MutationObserver(check).observe(box, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(check).observe(opt.watch || box, { attributes: true, attributeFilter: ['class'] });
     check();
   } else new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else running = false; }).observe(box);
   const fitBox = () => {

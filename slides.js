@@ -246,11 +246,12 @@
   }
   const togglePlay = () => setPlay(!playing);
 
-  // The site's jade rabbit also lives at the bottom of the membership slide, just to watch.
-  const memberSlide = document.querySelector('.s-member');
-  window.mountRabbit?.(memberSlide, {
-    scale: () => (document.body.classList.contains('portrait') ? 2.6 : 2.3),
-    active: () => memberSlide.classList.contains('on'),
+  // The site's jade rabbit keeps the slideshow company along the bottom of the stage while it
+  // plays, carrying on from slide to slide. Just to watch; it fades away when paused.
+  window.mountRabbit?.(stage, {
+    scale: () => (document.body.classList.contains('portrait') ? 2.4 : 2),
+    active: () => document.body.classList.contains('playing'),
+    watch: document.body,
     interactive: false,
   });
 

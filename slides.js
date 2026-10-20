@@ -3,7 +3,8 @@
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const embed = new URLSearchParams(location.search).has('embed');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const DELAY = 20000; // autoplay: slow, the slideshow loops in the background of the event
+  const DELAY = 20000; // autoplay per slide: slow, the slideshow loops in the background of the event
+  // a slide can ask for longer with data-seconds (the membership slide lingers with its rabbit)
   if (embed) document.body.classList.add('embed');
   const sticker = id => `<svg class="stk"><use href="img/stickers.svg#${id}"/></svg>`;
 
@@ -190,7 +191,10 @@
   // on from there, and stepping by hand jumps to the start of that slide's stretch.
   let cur = -1;
   let playing = false, timer = null, elapsed = 0, startedAt = 0;
-  const pos = () => ((cur + Math.min(1, elapsed / DELAY)) / N) * 100;
+  const dur = i => (Number(slides[i].dataset.seconds) * 1000) || DELAY;
+  const startOf = i => slides.slice(0, i).reduce((t, _, j) => t + dur(j), 0);
+  const LOOP = startOf(N);
+  const pos = () => ((startOf(cur) + Math.min(elapsed, dur(cur))) / LOOP) * 100;
 
   function go(i, announce = true) {
     i = (i + N) % N;
@@ -215,7 +219,7 @@
   // Run the clock for whatever is left of the current slide, and let the bar crawl with it.
   function run() {
     clearTimeout(timer);
-    const left = DELAY - elapsed, bar = $('bar');
+    const left = dur(cur) - elapsed, bar = $('bar');
     startedAt = performance.now();
     timer = setTimeout(next, left);
     bar.style.transition = 'none';
@@ -223,7 +227,7 @@
     if (reduced) return;
     void bar.offsetWidth; // commit the start position before animating
     bar.style.transition = `width ${left}ms linear`;
-    bar.style.width = `${((cur + 1) / N) * 100}%`;
+    bar.style.width = `${(startOf(cur + 1) / LOOP) * 100}%`;
   }
   function setPlay(on) {
     if (playing && !on) {
@@ -231,6 +235,7 @@
       clearTimeout(timer); timer = null;
       $('bar').style.transition = 'none';
       $('bar').style.width = `${pos()}%`; // freeze right here
+      void $('bar').offsetWidth; // apply it now, even if a slide change follows at once
     }
     playing = on;
     if (on && cur >= 0) run();

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=Playfair+Display:wght@900&display=swap">
   <link rel="stylesheet" href="base.css?v=10">
-  <link rel="stylesheet" href="slides.css?v=11">
+  <link rel="stylesheet" href="slides.css?v=12">
 </head>
 <body>
   <main class="viewer" aria-roledescription="trình chiếu" aria-label="Slideshow Trung Thu 2026">
@@ -182,7 +182,10 @@
       </button>
       </div>
       <button type="button" id="lang" class="lang-btn"></button>
-      <button type="button" id="fs" aria-label="Toàn màn hình"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      <button type="button" id="fs" aria-label="Toàn màn hình" aria-pressed="false">
+        <svg class="i-enter" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <svg class="i-exit" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
     </nav>
     <div class="bar" aria-hidden="true"><i id="bar"></i></div>
     <p class="sr-only" aria-live="polite" id="live"></p>
@@ -190,6 +193,6 @@
 
   <script src="i18n.js?v=14"></script>
   <script src="data.js?v=10"></script>
-  <script src="slides.js?v=12"></script>
+  <script src="slides.js?v=13"></script>
 </body>
 </html>

@@ -162,6 +162,9 @@
     }
     api.toggle = () => { if (!api.ready) return; api.userOff = api.on; set(!api.on); };
     api.start = () => { if (api.ready && !api.on && !api.userOff) set(true); };
+    // Play and pause on the slideshow carry the music with them; the note button and M can
+    // still change it on its own until the next play or pause.
+    api.sync = on => { if (!api.ready) return; api.userOff = !on; if (api.on !== on) set(on); };
     api.volume = () => volume;
     api.setVolume = v => {
       volume = v;
@@ -231,6 +234,7 @@
     }
     playing = on;
     if (on && cur >= 0) run();
+    music.sync(on);
     $('play').setAttribute('aria-pressed', String(on));
     $('play').setAttribute('aria-label', on ? 'Tạm dừng' : 'Tự chạy');
     document.body.classList.toggle('playing', on);
@@ -239,12 +243,26 @@
 
   // The home page puts this embed into fullscreen from its own buttons and tells us so.
   window.TTslides = {
-    setFull(on) { document.body.classList.toggle('full', on); fit(); },
-    fullscreenStart() { this.setFull(true); music.start(); if (!playing && !reduced) setPlay(true); },
+    setFull(on) { fullFromParent = on; syncFs(); },
+    fullscreenStart() { this.setFull(true); if (!reduced) { if (playing) music.sync(true); else setPlay(true); } },
   };
 
+  // Fullscreen can come from this page (button, F) or from the home page putting the whole
+  // embed into fullscreen; either way the button shows "exit" and leaves it.
+  let fullFromParent = false;
+  const fsDoc = () => (document.fullscreenElement || document.webkitFullscreenElement ? document : parent.document);
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || fullFromParent;
+  function syncFs() {
+    const on = isFull();
+    document.body.classList.toggle('full', on);
+    $('fs').setAttribute('aria-pressed', String(on));
+    $('fs').setAttribute('aria-label', on ? 'Thoát toàn màn hình' : 'Toàn màn hình');
+    fit();
+  }
+  document.addEventListener('fullscreenchange', syncFs);
+  document.addEventListener('webkitfullscreenchange', syncFs);
   function toggleFs() {
-    if (document.fullscreenElement) document.exitFullscreen();
+    if (isFull()) { const d = fsDoc(); (d.exitFullscreen || d.webkitExitFullscreen)?.call(d); }
     else (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement);
   }
 

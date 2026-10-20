@@ -172,6 +172,8 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
 #play .i-pause, #play[aria-pressed="true"] .i-play { display: none; }
 .controls .lang-btn svg { display: block; width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 255, 255, .5); }
 #play[aria-pressed="true"] .i-pause { display: block; }
+#fs .i-exit, #fs[aria-pressed="true"] .i-enter { display: none; }
+#fs[aria-pressed="true"] .i-exit { display: block; }
 #music .i-on, #music[aria-pressed="true"] .i-off { display: none; }
 
 /* Volume slider above the note button */

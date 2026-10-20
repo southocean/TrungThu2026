@@ -25,6 +25,57 @@
       </div>
     </li>`).join('');
 
+  // Gallery: click a photo to see it large, then step through them all.
+  const shots = [...document.querySelectorAll('.gallery img')];
+  const lb = document.createElement('dialog');
+  lb.className = 'lightbox';
+  lb.setAttribute('data-i18n-attr', 'aria-label:lb-label');
+  const arrow = d => `<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  lb.innerHTML = `
+    <button type="button" class="lb-btn lb-close" data-i18n-attr="aria-label:lb-close">${arrow('M6 6l12 12M18 6L6 18')}</button>
+    <button type="button" class="lb-btn lb-prev" data-i18n-attr="aria-label:lb-prev">${arrow('M15 5l-7 7 7 7')}</button>
+    <figure><img class="lb-img" alt=""><figcaption></figcaption></figure>
+    <button type="button" class="lb-btn lb-next" data-i18n-attr="aria-label:lb-next">${arrow('M9 5l7 7-7 7')}</button>
+    <p class="lb-count" aria-live="polite"></p>`;
+  document.body.append(lb);
+  const lbImg = lb.querySelector('.lb-img'), lbCap = lb.querySelector('figcaption'), lbCount = lb.querySelector('.lb-count');
+  let shown = 0;
+  function showShot(i, dir = 0) {
+    shown = (i + shots.length) % shots.length;
+    const src = shots[shown];
+    lbImg.classList.remove('from-left', 'from-right');
+    void lbImg.offsetWidth; // restart the slide-in
+    if (dir) lbImg.classList.add(dir > 0 ? 'from-right' : 'from-left');
+    lbImg.src = src.currentSrc || src.src;
+    lbImg.alt = src.alt;
+    lbCap.textContent = src.alt;
+    lbCount.textContent = `${shown + 1} / ${shots.length}`;
+    [shown + 1, shown - 1].forEach(j => { new Image().src = shots[(j + shots.length) % shots.length].src; }); // preload neighbours
+  }
+  shots.forEach((img, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'g-open';
+    b.setAttribute('data-i18n-attr', 'aria-label:lb-open');
+    img.replaceWith(b); b.append(img);
+    b.addEventListener('click', () => { showShot(i); lb.showModal(); document.documentElement.classList.add('lb-open'); });
+  });
+  lb.querySelector('.lb-prev').onclick = () => showShot(shown - 1, -1);
+  lb.querySelector('.lb-next').onclick = () => showShot(shown + 1, 1);
+  lb.querySelector('.lb-close').onclick = () => lb.close();
+  lb.addEventListener('close', () => document.documentElement.classList.remove('lb-open'));
+  lb.addEventListener('click', e => { if (e.target === lb || e.target.tagName === 'FIGURE') lb.close(); }); // click outside the photo
+  lb.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); showShot(shown + 1, 1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); showShot(shown - 1, -1); }
+  });
+  let swipeX = null;
+  lb.addEventListener('pointerdown', e => { swipeX = e.clientX; });
+  lb.addEventListener('pointerup', e => {
+    if (swipeX == null) return;
+    const dx = e.clientX - swipeX; swipeX = null;
+    if (Math.abs(dx) > 50) showShot(shown + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+  });
+
   I18N.apply();
   markLang();
   renderAgenda();

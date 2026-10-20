@@ -75,7 +75,7 @@ window.I18N = (() => {
     'act-food': { vi: 'Ẩm thực', sv: 'Mat', en: 'Food' },
     'act-community': { vi: 'Giao lưu', sv: 'Gemenskap', en: 'Community' },
     'end-h': { vi: 'Trung Thu vui vẻ!', sv: 'Glad månfest!', en: 'Happy Mid-Autumn!' },
-    'end-line': { vi: 'Cảm ơn cả nhà đã đến – hẹn gặp lại mùa trăng sau!', sv: 'Tack för att ni kom – vi ses nästa månfest!', en: 'Thank you for coming – see you next Mid-Autumn!' },
+    'end-line': { vi: 'Chúc cả nhà một mùa trăng tròn đầy, ấm áp và vui tươi!', sv: 'Vi önskar alla en varm och glädjefylld månfest!', en: 'Wishing everyone a warm and joyful Mid-Autumn Festival!' },
   };
 
   let lang = 'vi';

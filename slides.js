@@ -181,7 +181,13 @@
     return api;
   })();
 
+  // Autoplay runs like a video and the bar is its timeline: each slide owns an equal stretch of
+  // the loop. Pausing freezes the bar (and the slide's remaining time) where it is, play carries
+  // on from there, and stepping by hand jumps to the start of that slide's stretch.
   let cur = -1;
+  let playing = false, timer = null, elapsed = 0, startedAt = 0;
+  const pos = () => ((cur + Math.min(1, elapsed / DELAY)) / N) * 100;
+
   function go(i, announce = true) {
     i = (i + N) % N;
     if (i === cur) return;
@@ -192,43 +198,43 @@
       s.setAttribute('aria-hidden', String(!on));
     });
     cur = i;
+    elapsed = 0;
     $('count').textContent = `${i + 1} / ${N}`;
     if (announce) $('live').textContent = `Slide ${i + 1} / ${N}: ${slides[i].querySelector('h1, h2').textContent}`;
     if (!embed) history.replaceState(null, '', `#${i + 1}`);
-    if (timer) restart();
-    paintBar();
+    if (playing) run();
+    else { $('bar').style.transition = ''; $('bar').style.width = `${pos()}%`; }
   }
   const next = () => go(cur + 1);
   const prev = () => go(cur - 1);
 
-  // Autoplay (loops; good for leaving on the projector)
-  let timer = null;
-  function restart() { clearInterval(timer); timer = setInterval(next, DELAY); }
-
-  // Progress bar. Stepping by hand it jumps to the slide's share of the show; while
-  // autoplaying it creeps steadily through the slide like a video timeline, then wraps.
-  function paintBar() {
-    const bar = $('bar');
-    if (timer && !reduced) {
-      bar.style.transition = 'none';
-      bar.style.width = `${(cur / N) * 100}%`;
-      void bar.offsetWidth; // commit the start position before animating
-      bar.style.transition = `width ${DELAY}ms linear`;
-      bar.style.width = `${((cur + 1) / N) * 100}%`;
-    } else {
-      bar.style.transition = '';
-      bar.style.width = `${((cur + 1) / N) * 100}%`;
-    }
+  // Run the clock for whatever is left of the current slide, and let the bar crawl with it.
+  function run() {
+    clearTimeout(timer);
+    const left = DELAY - elapsed, bar = $('bar');
+    startedAt = performance.now();
+    timer = setTimeout(next, left);
+    bar.style.transition = 'none';
+    bar.style.width = `${pos()}%`;
+    if (reduced) return;
+    void bar.offsetWidth; // commit the start position before animating
+    bar.style.transition = `width ${left}ms linear`;
+    bar.style.width = `${((cur + 1) / N) * 100}%`;
   }
   function setPlay(on) {
-    clearInterval(timer); timer = null;
-    if (on) restart();
-    if (cur >= 0) paintBar();
+    if (playing && !on) {
+      elapsed += performance.now() - startedAt;
+      clearTimeout(timer); timer = null;
+      $('bar').style.transition = 'none';
+      $('bar').style.width = `${pos()}%`; // freeze right here
+    }
+    playing = on;
+    if (on && cur >= 0) run();
     $('play').setAttribute('aria-pressed', String(on));
     $('play').setAttribute('aria-label', on ? 'Tạm dừng' : 'Tự chạy');
     document.body.classList.toggle('playing', on);
   }
-  const togglePlay = () => setPlay(!timer);
+  const togglePlay = () => setPlay(!playing);
 
   function toggleFs() {
     if (document.fullscreenElement) document.exitFullscreen();

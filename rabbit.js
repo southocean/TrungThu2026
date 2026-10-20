@@ -323,11 +323,9 @@
       ear([2, -2], -2.1 + Math.sin(k * 0.5) * 0.05), // ears pinned back along the neck
       ear([5, -3], -1.85),
     ]);
-    g.fillStyle = '#fdfbff'; g.strokeStyle = 'rgba(40, 20, 70, .55)'; g.lineWidth = 1.6;
-    g.beginPath(); g.moveTo(-7, 3); g.quadraticCurveTo(-4, -6, -1, -13); g.quadraticCurveTo(2, -6, 5, 2); g.closePath(); g.fill(); g.stroke();
-    // the skin pulled taut into the pinch
-    g.strokeStyle = 'rgba(40, 20, 70, .35)'; g.lineWidth = 1.1;
-    g.beginPath(); g.moveTo(-6, 9); g.quadraticCurveTo(-3, 0, -1, -9); g.moveTo(3, 8); g.quadraticCurveTo(1, 0, -0.5, -8); g.stroke();
+    // fur pulled taut at the back of the neck, where it's held
+    g.strokeStyle = 'rgba(40, 20, 70, .3)'; g.lineWidth = 1.1; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(-6, 14); g.quadraticCurveTo(-4, 9, -2, 6); g.moveTo(-2, 15); g.quadraticCurveTo(-1, 10, 0, 7); g.stroke();
     g.fillStyle = 'rgba(150, 130, 190, .18)';
     g.beginPath(); g.ellipse(-2, 34, 9, 12, 0.05, 0, TAU); g.fill();
     g.fillStyle = '#ffb3c7'; innerEar([5, -3], -1.85);

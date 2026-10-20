@@ -48,16 +48,17 @@
   // Music: TT.music played in order, looping. Each song plays from its file in audio/; if
   // that file is missing or fails, the same song streams through YouTube's embedded player
   // instead (YouTube requires that player to stay visible, so it shows as a small card in
-  // the corner only while a YouTube song is playing). Browsers only allow sound after a
-  // click or key, so it starts from the button, M, or P (autoplay). Not on the home-page embed.
+  // the corner only while a YouTube song is playing). Browsers block sound until the visitor
+  // clicks, taps or presses a key, so music starts with that first interaction; the note
+  // button or M turns it off (and it stays off) or back on.
   const music = (() => {
     const btn = $('music');
     const api = { ready: false, on: false, toggle() {} };
     const list = (TT.music || []).filter(t => t.src || t.youtube);
-    if (embed || !list.length) return api;
+    if (!list.length) return api;
 
     const audio = new Audio();
-    audio.preload = 'auto';
+    audio.preload = embed ? 'metadata' : 'auto'; // the home-page embed shouldn't pull songs up front
     let i = 0, source = 'file'; // which engine the current song is using
     let yt = null, ytReady = null, box = null;
 
@@ -123,7 +124,7 @@
     }
     function next() { i = (i + 1) % list.length; load(api.on); label(); }
 
-    audio.addEventListener('canplay', () => { skips = 0; ready(); });
+    audio.addEventListener('loadedmetadata', () => { skips = 0; ready(); });
     audio.addEventListener('playing', () => { skips = 0; });
     audio.addEventListener('ended', next);
     audio.addEventListener('error', () => { if (source === 'file') fallBack(api.on); });
@@ -134,11 +135,20 @@
       btn.setAttribute('aria-label', on ? 'Tắt nhạc' : 'Bật nhạc');
       if (source === 'youtube' && yt) {
         if (on) { yt.playVideo(); showBox(true); } else { yt.pauseVideo(); showBox(false); }
-      } else if (on) audio.play().catch(() => {});
+      } else if (on) audio.play().catch(e => { if (e.name === 'NotAllowedError') set(false); }); // no gesture yet
       else audio.pause();
       label();
     }
-    api.toggle = () => api.ready && set(!api.on);
+    api.toggle = () => { if (!api.ready) return; api.userOff = api.on; set(!api.on); };
+
+    // First click, tap or key anywhere in the slideshow starts the music, unless the visitor
+    // has switched it off. The note button and M are left to toggle it themselves.
+    const kick = e => {
+      if (e.target.closest?.('#music') || /^m$/i.test(e.key || '')) return;
+      if (api.ready && !api.on && !api.userOff) set(true);
+    };
+    addEventListener('pointerdown', kick, true);
+    addEventListener('keydown', kick, true);
     load(false);
     return api;
   })();
@@ -169,7 +179,6 @@
   function setPlay(on) {
     clearInterval(timer); timer = null;
     if (on) restart();
-    if (on && !embed && music.ready && !music.on) music.toggle(); // autoplay brings the music
     $('play').setAttribute('aria-pressed', String(on));
     $('play').setAttribute('aria-label', on ? 'Tạm dừng' : 'Tự chạy');
     document.body.classList.toggle('playing', on);

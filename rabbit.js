@@ -386,8 +386,9 @@ window.mountRabbit = (box, opt = {}) => {
   const pointer = { x: -1e3, y: -1e3, inside: false };
   let main = null, friend = null;
 
-  // ear poses when facing the room: [left, right] tilt. Upright V, tips touching, wide, one out, one flopped
-  const FRONT_EARS = [[-0.16, 0.16], [-0.16, 0.16], [0.13, -0.13], [0.1, -0.04], [-0.38, 0.36], [-0.12, 0.42], [-0.45, 0.1], [-0.75, 0.18], [-0.15, 0.7]];
+  // ear poses when facing the room: [left, right] tilt. Upright V, side by side (just touching), wide, one out, one flopped.
+  // Left never tilts past 0 and right never below 0, so the ears can touch but never cross.
+  const FRONT_EARS = [[-0.16, 0.16], [-0.16, 0.16], [0, 0], [-0.04, 0.06], [-0.38, 0.36], [-0.12, 0.42], [-0.45, 0.1], [-0.75, 0.18], [-0.15, 0.7]];
   function Bunny(look, depth) {
     const me = {};
     const r = {
@@ -937,7 +938,7 @@ window.mountRabbit = (box, opt = {}) => {
     }
     // the head turned to the room (the 'audience' look) on the side-on body: both ears, both eyes
     // and a little smile, still alive: blinks, small glances, ear twitches, a twitching nose and mouth
-    const frontEars = () => { const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; return [[-4.5, r.fe[0] + tw], [4.5, r.fe[1] - tw2]]; }; // pose + twitches
+    const frontEars = () => { const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; return [[-4.5, Math.min(0, r.fe[0] + tw)], [4.5, Math.max(0, r.fe[1] - tw2)]]; }; // pose + twitches, never crossing
     // head and ears as shapes, so they go into the body's outline pass and the neck has no seam
     const frontHeadShapes = (cx, cy) => [
       ...frontEars().map(([x, a]) => ['e', cx + x + Math.sin(a) * 12, cy - 9 - Math.cos(a) * 12, 4.6, 13.5, a]),

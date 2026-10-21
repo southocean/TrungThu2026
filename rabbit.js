@@ -42,7 +42,7 @@ window.mountRabbit = (box, opt = {}) => {
   //   ambient: with the rabbit away, now and then a butterfly or a bee drifts through
   const tune = {
     flies: 1, flyChance: 0.1, binky: true, flowers: 8, bees: 2, carrots: 3,
-    friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ambient: false, ...opt.tune,
+    friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ambient: false, resident: false, ...opt.tune,
   };
   // Grass: how much of the meadow is grown, 0 (bare) … 1 (full). It eases toward its target (set by the
   // slideshow: a few clumps when it switches on, then a step up with each rain), so it visibly grows.
@@ -523,7 +523,7 @@ window.mountRabbit = (box, opt = {}) => {
     // visitor around, toward each other when they've drifted apart
     function roomyDir() {
       const p = partner();
-      if (p && r.greeted && Math.abs(p.r.x - r.x) > 160 * S && chance(0.7)) return Math.sign(p.r.x - r.x);
+      if (p && r.greeted && Math.abs(p.r.x - r.x) > 160 * S && chance(tune.resident ? 0.15 : 0.7)) return Math.sign(p.r.x - r.x); // housemates mostly go their own way
       return chance(0.5 - 0.42 * ((r.x - W / 2) / (W / 2))) ? 1 : -1;
     }
     const free = () => r.mode === 'rest' && r.act !== 'groom';
@@ -600,7 +600,7 @@ window.mountRabbit = (box, opt = {}) => {
     function play(p) {
       const side = Math.sign(p.r.x - r.x) || 1;
       const kind = pick(['follow', 'follow', 'groom', 'snuggle']);
-      cool.social = rand(14, 24); p.cool.social = rand(10, 18);
+      cool.social = tune.resident ? rand(35, 60) : rand(14, 24); p.cool.social = tune.resident ? rand(30, 50) : rand(10, 18); // housemates play together less often
       if (kind === 'follow') { // follow-the-leader: off it goes, the other hops after
         const dir = chance(0.5 - 0.42 * ((r.x - W / 2) / (W / 2))) ? 1 : -1;
         const tx = clamp(r.x + dir * rand(4, 6) * 22 * S, margin(), W - margin());
@@ -632,7 +632,7 @@ window.mountRabbit = (box, opt = {}) => {
       if (!wantOut) { exit(); return; } // time to go: it has finished what it was doing, so off it hops
       if (r.wet && rain < 0.12) { r.wet = false; setMode('shakeoff', 1.2); return; } // the rain's over: shake it all off
       if (rain > 0.3 || (r.wet && rain >= 0.12)) { r.wet = true; setMode('hunker', rand(1.5, 4)); return; } // raining: hunch down and wait it out
-      if (r.visit === 'stay' && r.greeted && r.stayLeft <= 0) { exit(); return; }
+      if (r.visit === 'stay' && r.greeted && r.stayLeft <= 0 && !tune.resident) { exit(); return; } // a resident friend never goes home
       // a visitor: first say hello, then stay close and sometimes play
       if (p && p.r.visit !== 'leave') {
         const dist = Math.abs(p.r.x - r.x);
@@ -640,10 +640,10 @@ window.mountRabbit = (box, opt = {}) => {
           if (dist < 90 * S && p.free()) { greet(me, p); return; }
           // the visitor walks up to say hello; the host just carries on until it arrives
           if (me === friend) { const side = r.x < p.r.x ? -1 : 1; goTo(p.r.x + side * 52 * S); return; }
-        } else if (dist > 300 * S && p.r.mode !== 'hop' && chance(0.6)) { // drifted apart: close the gap
+        } else if (dist > 300 * S && p.r.mode !== 'hop' && chance(tune.resident ? 0.08 : 0.6)) { // drifted apart: close the gap (rarely, once they live together)
           const side = r.x < p.r.x ? -1 : 1; goTo(p.r.x + side * rand(50, 90) * S); return;
         }
-        if (cool.social <= 0 && p.free() && dist < 400 * S && chance(0.5)) { play(p); return; }
+        if (cool.social <= 0 && p.free() && dist < 400 * S && chance(tune.resident ? 0.3 : 0.5)) { play(p); return; }
       }
       // food: a dropped carrot nearby, a ripe one in the ground it can see, or dig one up here
       const drop = nearest(lying, 170 * S);
@@ -684,7 +684,7 @@ window.mountRabbit = (box, opt = {}) => {
       }
       const roll = Math.random();
       if (roll < 0.6) startHops(chance(0.6) ? 1 : 2, roomyDir());
-      else if (roll < 0.8 && !p) stroll(); // with a friend over, it stays closer
+      else if (roll < 0.8 && (!p || tune.resident)) stroll(); // with a friend visiting, it stays closer
       else rest(1.5, 3.5);
     }
     function startChase(flies) {
@@ -1463,6 +1463,8 @@ window.mountRabbit = (box, opt = {}) => {
     if (!F.growCarrots) planted.length = 0;
     if (!F.bees) for (const b of bugs) if (b.type === 'bee') b.state = 'leave';
     if (tune.friend && !friendWasOn) worldCool.friend = rand(20, 45); // first visit soon after it unlocks
+    if (tune.resident) { worldCool.friend = Math.min(worldCool.friend, rand(3, 10)); if (friend) friend.r.stayLeft = Infinity; } // moving in: here soon, here to stay
+    else if (friend && friend.r.stayLeft === Infinity) friend.r.stayLeft = rand(...tune.friendStay); // stepped back: just visiting again
     if (!tune.friend && friend && friend.r.visit !== 'leave') friend.exit();
     if (tune.ambient && entered) start(); // passers-by need the scene running while the rabbit is away
     render();

@@ -273,7 +273,7 @@
   const PHASES = [
     { at: '14:00', name: 'Just the rabbit', features: {}, tune: { // full baseline, so stepping back undoes later rows
       flies: 0, flyChance: 0.06, binky: false, flowers: 2, bees: 1, carrots: 1,
-      friend: false, share: false, friendEvery: [540, 720], friendStay: [60, 100] },
+      friend: false, share: false, resident: false, friendEvery: [540, 720], friendStay: [60, 100] },
       stage: { on: [60, 90], off: [120, 150] } },
     { at: '14:10', name: 'A butterfly', tune: { flies: 1, binky: true }, stage: { on: [90, 120], off: [90, 120] } },
     { at: '14:15', name: 'A friend visits', tune: { friend: true } },
@@ -286,7 +286,9 @@
     { at: '16:10', name: 'More flowers', tune: { flowers: 4, carrots: 2 }, stage: 'always' },
     { at: '16:20', name: 'A bee', features: { bees: true } },
     { at: '16:40', name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
-    { at: '17:00', name: 'Fireflies', features: { fireflies: true }, tune: { fireflies: 8 } },
+    { at: '16:50', name: 'Friend visits more', tune: { friendEvery: [120, 180], friendStay: [150, 240] } },
+    { at: '16:55', name: 'Friend nearly always here', tune: { friendEvery: [40, 70], friendStay: [240, 360] } },
+    { at: '17:00', name: 'Fireflies; the friend moves in', features: { fireflies: true }, tune: { fireflies: 8, resident: true } }, // stays for good, its own rabbit
   ];
   // No milestones here; the rabbit drops back to a rare visit and insects pass by while it's away.
   // Rain: drizzle, rain, a downpour. Each one grows the grass a step (`grass`), so by the end of the

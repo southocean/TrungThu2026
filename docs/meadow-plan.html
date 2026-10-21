@@ -117,8 +117,12 @@
         <p>Up to 8 flowers (fewer on narrow screens), 3 butterflies, 2 bees; the friend visits every 4–6 min.</p></div></li>
       <li class="eco"><time>16:52</time><div class="body"><h3>☂ Drizzle <span class="tag built">built</span></h3>
         <p>45 s, just for the look of it.</p></div></li>
-      <li class="eco"><time>17:00</time><div class="body"><h3>Fireflies <span class="tag built">built</span></h3>
-        <p>Up to 8 fireflies (fewer on narrow screens) drift low over the meadow, glowing for a second or two, then dark for a while.</p></div></li>
+      <li><time>16:50</time><div class="body"><h3>The friend visits more <span class="tag built">built</span></h3>
+        <p>Every 2–3 min, staying 2.5–4 min.</p></div></li>
+      <li><time>16:55</time><div class="body"><h3>The friend is nearly always here <span class="tag built">built</span></h3>
+        <p>Every 40–70 s, staying 4–6 min.</p></div></li>
+      <li class="eco"><time>17:00</time><div class="body"><h3>Fireflies; the friend moves in <span class="tag built">built</span></h3>
+        <p>Up to 8 fireflies drift low over the meadow, glowing for a second or two, then dark for a while. The friend arrives within seconds and stays for good, as its own rabbit: it naps, digs and eats, chases butterflies, cleans its ears, looks at the room and wanders the whole floor on its own. The two still meet up to play now and then (every 35–60 s at most) and share carrots, but neither follows the other around.</p></div></li>
       <li class="idea"><time>later</time><div class="body"><h3>More surprises <span class="tag idea-tag">ideas</span></h3>
         <p>Falling autumn leaves · a dropped mooncake to nibble · a slow snail the rabbit sniffs.</p></div></li>
     </ol>
@@ -159,7 +163,9 @@
         <tr><td class="num">16:10</td><td>More flowers</td><td></td><td><code>flowers 4, carrots 2</code></td><td>always out</td></tr>
         <tr><td class="num">16:20</td><td>A bee</td><td><code>bees</code></td><td></td><td></td></tr>
         <tr><td class="num">16:40</td><td>Full meadow</td><td></td><td><code>flowers 8, flies 3, bees 2, flyChance 0.18, friendEvery [240, 360]</code></td><td></td></tr>
-        <tr><td class="num">17:00</td><td>Fireflies</td><td><code>fireflies</code></td><td><code>fireflies 8</code></td><td></td></tr>
+        <tr><td class="num">16:50</td><td>Friend visits more</td><td></td><td><code>friendEvery [120, 180], friendStay [150, 240]</code></td><td></td></tr>
+        <tr><td class="num">16:55</td><td>Friend nearly always here</td><td></td><td><code>friendEvery [40, 70], friendStay [240, 360]</code></td><td></td></tr>
+        <tr><td class="num">17:00</td><td>Fireflies; the friend moves in</td><td><code>fireflies</code></td><td><code>fireflies 8, resident true</code></td><td></td></tr>
       </tbody>
     </table></div>
     <p style="margin-top:14px"><code>RAINS</code> in <code>slides.js</code>: 15:36 drizzle (50 s, grass +0.12) · 15:54 rain (70 s, +0.2) · 16:06 drizzle (50 s, +0.12) · 16:28 heavy (90 s, +0.31) · 16:52 drizzle (45 s). The grass level is worked out from the clock, so it's right even if a rain was missed.</p>

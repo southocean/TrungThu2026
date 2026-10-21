@@ -48,6 +48,7 @@ window.mountRabbit = (box, opt = {}) => {
   // slideshow: a few clumps when it switches on, then a step up with each rain), so it visibly grows.
   let grassAmt = F.grass ? 1 : 0, grassTarget = grassAmt;
   // Rain: 0 … 1, eased toward what the slideshow asks for (0.25 drizzle, 0.55 rain, 1 heavy).
+  let weathered = false; // the first reading after a load sets the grass straight away (a reload mid-afternoon shows the grown meadow)
   let rain = 0, rainTarget = 0, wet = 0; // wet: the ground after rain (0 … 1), which speeds up everything that grows
   const drops = [], splashes = [], sprays = []; // falling rain, splashes on the ground, water shaken off a rabbit
   const fireflies = [];
@@ -1474,8 +1475,8 @@ window.mountRabbit = (box, opt = {}) => {
   return {
     configure, show, features: F, tune, bugs, flowers, planted,
     // the slideshow's clock sets these every second: rain 0…1 and how much of the meadow is grass
-    weather({ rain: rn = 0, grass: gr = 0, snap = false } = {}) { rainTarget = rn; grassTarget = gr; if (snap) grassAmt = F.grass ? gr : 0; if ((rn > 0.01 || rain > 0.01) && entered) start(); },
-    get rain() { return rain; }, get grass() { return grassAmt; }, get wet() { return wet; },
+    weather({ rain: rn = 0, grass: gr = 0, snap = false } = {}) { rainTarget = rn; grassTarget = gr; if (snap || !weathered) grassAmt = F.grass ? gr : 0; weathered = true; if ((rn > 0.01 || rain > 0.01) && entered) start(); },
+    get rain() { return rain; }, get grass() { return grassAmt; }, get wet() { return wet; }, fireflies,
     get out() { return wantOut; }, get present() { return entered && !main.gone; },
     get r() { return main.r; }, get main() { return main; }, get friend() { return friend; },
     force(what) {

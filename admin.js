@@ -96,6 +96,7 @@
   function unlock(quiet) {
     try { sessionStorage.setItem('tt_admin', '1'); } catch {}
     document.body.classList.add('admin');
+    window.TThow?.show(true);
     frame.loading = 'eager';
     build();
     panel.hidden = false;
@@ -108,6 +109,7 @@
     clearInterval(poll);
     panel.hidden = true; panel.innerHTML = '';
     document.body.classList.remove('admin');
+    window.TThow?.show(false);
   }
 
   const SPEEDS = [1, 10, 60];

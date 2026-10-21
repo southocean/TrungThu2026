@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=Playfair+Display:wght@900&display=swap">
   <link rel="stylesheet" href="base.css?v=10">
-  <link rel="stylesheet" href="site.css?v=17">
+  <link rel="stylesheet" href="site.css?v=21">
 </head>
 <body>
   <a class="skip" href="#chuong-trinh" data-i18n="skip">Bỏ qua đến chương trình</a>
@@ -29,6 +29,7 @@
       <a href="#slideshow" data-i18n="nav-slides">Slideshow</a>
       <a href="#hoi" data-i18n="nav-about">Về Hội</a>
       <a class="nav-cta" href="#hoi-vien" data-i18n="nav-member">Hội viên</a>
+      <button type="button" class="nav-how" id="nav-how" hidden lang="en" aria-label="How it works"><span class="how-long">How it works</span><span class="how-short" aria-hidden="true">How</span></button>
     </nav>
     <div class="langs" role="group" aria-label="Ngôn ngữ" data-i18n-attr="aria-label:lang"></div>
   </header>
@@ -118,6 +119,8 @@
     </ul>
   </footer>
 
+  <dialog id="how" class="how" lang="en" aria-labelledby="how-title"></dialog>
+
   <dialog id="gate" lang="en">
     <form method="dialog" id="gate-form">
       <p class="gate-kicker">Restricted · admin only</p>
@@ -138,8 +141,9 @@
   <script src="i18n.js?v=14"></script>
   <script src="data.js?v=10"></script>
   <script src="site.js?v=13"></script>
-  <script src="admin.js?v=4"></script>
+  <script src="howto.js?v=4"></script>
+  <script src="admin.js?v=5"></script>
   <script src="lanterns.js?v=10"></script>
-  <script src="rabbit.js?v=39"></script>
+  <script src="rabbit.js?v=41"></script>
 </body>
 </html>

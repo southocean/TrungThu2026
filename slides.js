@@ -337,8 +337,8 @@
   const phaseAt = min => PHASES.reduce((k, p, i) => (min >= p.min ? i : k), 0);
   RAINS.forEach(x => { x.min = toMin(x.at); });
   let forcedRain = 0; // admin: a spawned rain lasts until this time (performance.now ms)
-  function weatherNow() {
-    const min = clock().min, idx = phaseAt(min);
+  function weatherNow(min = clock().min) {
+    const idx = phaseAt(min);
     const now = RAINS.find(x => min >= x.min && min < x.min + x.secs / 60);
     let grass = PHASES.slice(0, idx + 1).reduce((v, p) => (p.grass != null ? p.grass : v), 0);
     if (grass > 0) for (const x of RAINS) grass += x.grass * Math.min(1, Math.max(0, (min - x.min) / (x.secs / 60)));
@@ -391,7 +391,15 @@
     },
     setSpeed(speed) { sim = { min: clock().min, speed }; saveSim(); },
     live() { sim = null; saveSim(); applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); },
-    rains: RAINS.map(({ at, min, secs, name, grass }) => ({ at, min, secs, name, grass })),
+    rains: RAINS.map(({ at, min, secs, name, grass, level }) => ({ at, min, secs, name, grass, level })),
+    // the whole afternoon at any minute, for the How it works timeline
+    at(min) {
+      const plan = planNow(min), w = weatherNow(min);
+      const out = !plan ? 0 : plan === 'always' ? 1 : (plan.on[0] + plan.on[1]) / (plan.on[0] + plan.on[1] + plan.off[0] + plan.off[1]);
+      const rn = RAINS.find(x => min >= x.min && min < x.min + x.secs / 60);
+      return { grass: w.grass, rain: rn ? rn.level : 0, out, quiet: !!quietAt(min), phase: PHASES[phaseAt(min)].name };
+    },
+    phaseDetail: PHASES.map(({ at, name, features, tune, grass }) => ({ at, name, features: features || {}, tune: tune || {}, grass })),
     force: what => (what === 'rain' ? (forcedRain = performance.now() + 40000, window.slideRabbit?.weather(weatherNow())) : window.slideRabbit?.force(what)),
     rabbit() {
       const plan = planNow();
@@ -418,11 +426,10 @@
   try { rabbitOn = localStorage.getItem('tt-rabbit') !== 'off'; } catch {}
   let out = false, turnAt = 0, lastPlan = null; // turnAt: when the current visit or break ends (0: not timed yet)
   const secs = ([a, b]) => (a + Math.random() * (b - a)) * 1000;
-  function planNow() {
-    const c = clock();
-    const q = quietAt(c.min);
+  function planNow(min = clock().min) {
+    const q = quietAt(min);
     if (q) return q.stage;
-    return PHASES.slice(0, phaseAt(c.min) + 1).reduce((st, p) => p.stage || st, null);
+    return PHASES.slice(0, phaseAt(min) + 1).reduce((st, p) => p.stage || st, null);
   }
   function stageTick(dt) {
     if (cur >= 0 && document.visibilityState === 'visible') {

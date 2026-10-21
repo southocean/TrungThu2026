@@ -169,8 +169,12 @@ window.mountRabbit = (box, opt = {}) => {
     const x = freeGroundSpot();
     if (x != null) shrooms.push({ x, grow, eaten: 0, size: rand(0.8, 1.2), kind: pick(SHROOM_KINDS), by: null, byT: 0 });
   }
+  // A falling leaf swings side to side like a pendulum, leaning into each swing, and turns in depth:
+  // flat (edge-on) at the ends of a swing, where it hangs in the air, showing its face (or its back)
+  // as it swings through. Now and then one tumbles over and over instead.
   function dropLeaf(x = rand(0.04, 0.96) * W) {
-    leaves.push({ x, y: -12 * S, vy: rand(16, 28) * S, ph: rand(0, TAU), rot: rand(0, TAU), vr: rand(-1.5, 1.5), color: pick(LEAF_COLORS), size: rand(0.85, 1.2), state: 'fall', t: 0 });
+    leaves.push({ x, x0: x, y: -24 * S, vy: rand(18, 26) * S, sw: rand(1.3, 2.1), amp: rand(22, 48) * S, ph: rand(0, TAU), drift: rand(-10, 10) * S,
+      rot: 0, rot0: rand(-0.35, 0.35), tumble: chance(0.22), vr: rand(-2.5, 2.5), sq: 1, color: pick(LEAF_COLORS), size: rand(1.15, 1.6), state: 'fall', t: 0 });
   }
   function plantCarrot(ripe = 0) {
     const x = freeGroundSpot();
@@ -342,14 +346,23 @@ window.mountRabbit = (box, opt = {}) => {
     g.fillStyle = m.kind.dark; g.globalAlpha = 0.35; g.beginPath(); g.ellipse(m.x + 2 * k * sc, y - sh * sc - ch * sc * 0.15, cw * sc * 0.6, ch * sc * 0.55, 0, Math.PI, TAU); g.fill(); g.globalAlpha = 1;
     if (m.eaten > 0.15) { g.fillStyle = m.kind.gill; g.beginPath(); g.arc(m.x - cw * sc * 0.7, y - sh * sc - ch * sc * 0.3, ch * sc * 0.55, 0, TAU); g.fill(); } // a bite out of the cap
   }
-  function drawLeaf(l) { // a small maple-ish leaf with a stem
-    g.save(); g.translate(l.x, l.y); g.rotate(l.rot); g.scale(S * l.size, S * l.size);
+  // A maple leaf: five pointed lobes with small teeth, the deep notches between them, veins from
+  // the base to each lobe tip, and a stem. `sq` squashes it for the turn in depth (1 = full face,
+  // 0 = edge-on, below 0 = its back, a touch darker).
+  const MAPLE_R = [[0, -10], [1.3, -6.9], [3.0, -7.9], [2.5, -4.4], [5.1, -5.1], [5.9, -7.0], [8.9, -5.7], [6.7, -3.2], [7.9, -1.7], [3.6, -0.8], [5.5, 1.2], [6.6, 3.7], [3.0, 2.5], [0.7, 4.0]];
+  const MAPLE = [...MAPLE_R, ...MAPLE_R.slice(1, -1).reverse().map(([x, y]) => [-x, y])];
+  function drawLeaf(l) {
+    const sq = l.sq ?? 1;
+    g.save(); g.translate(l.x, l.y); g.rotate(l.rot); g.scale(S * l.size, S * l.size * Math.max(0.07, Math.abs(sq)));
     g.globalAlpha = l.fade == null ? 1 : l.fade;
     g.fillStyle = l.color; g.beginPath();
-    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i / 10) * TAU, rr = i % 2 ? 2.6 : (i === 0 ? 6.4 : 5.4); g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    for (const [x, y] of MAPLE) g.lineTo(x, y);
     g.closePath(); g.fill();
-    g.strokeStyle = 'rgba(90, 40, 10, .55)'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 4.5); g.lineTo(0, -4.5); g.moveTo(0, 0); g.lineTo(3.4, -2.6); g.moveTo(0, 0); g.lineTo(-3.4, -2.6); g.stroke();
-    g.strokeStyle = '#7a4a1e'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(0, 3); g.lineTo(0.6, 7); g.stroke();
+    if (sq < 0) { g.fillStyle = 'rgba(60, 25, 5, .22)'; g.fill(); } // the back of the leaf
+    g.strokeStyle = 'rgba(110, 45, 10, .5)'; g.lineWidth = 0.6; g.beginPath();
+    for (const [x, y] of [[0, -9.4], [8.3, -5.4], [-8.3, -5.4], [6.1, 3.4], [-6.1, 3.4]]) { g.moveTo(0, 3.2); g.lineTo(x * 0.92, y * 0.92); }
+    g.stroke();
+    g.strokeStyle = '#7a4a1e'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(0, 3.6); g.quadraticCurveTo(0.6, 6, 0.2, 8.4); g.stroke();
     g.restore(); g.globalAlpha = 1;
   }
   function drawPlanted(c) { // a growing carrot: leaves fill out, the orange shoulder shows as it ripens
@@ -573,10 +586,12 @@ window.mountRabbit = (box, opt = {}) => {
     // can drop what it's doing to come and share (not mid-meal, asleep, greeting or leaving)
     const available = () => r.visit !== 'leave' && !r.entering && !['held', 'fall', 'land', 'sleep', 'dig', 'pull', 'eat', 'share', 'greet', 'groomOther', 'enjoy', 'nibble'].includes(r.mode);
     // a leaf on its head or back: it stays a few seconds, then a shake (or the next hop) sends it off
-    function wear(l, dx, oy) { l.state = 'on'; l.host = me; l.ox = dx; l.oy = oy; l.baseRot = rand(-0.6, 0.6); r.leaf = l; r.leafT = rand(2.5, 5); }
-    function shed(spin = 1) {
+    // a leaf lying on its back (lx: along the back, in rabbit units): it stays a few seconds, then a shake
+    // or the next hop sends it off
+    function wear(l, lx) { l.state = 'on'; l.host = me; l.lx = lx; l.baseRot = rand(-0.2, 0.2); r.leaf = l; r.leafT = rand(2.5, 5); }
+    function shed(dir = 1) {
       const l = r.leaf; if (!l) return;
-      r.leaf = null; l.state = 'fall'; l.host = null; l.caught = true; l.vy = rand(14, 22) * S; l.vr = spin * rand(2, 4); l.t = rand(0, 2);
+      r.leaf = null; l.state = 'fall'; l.host = null; l.caught = true; l.t = 0; l.x0 = l.x - Math.sin(l.ph) * l.amp; l.drift = dir * rand(10, 20) * S; l.vy = rand(20, 28) * S;
     }
     function rest(min = 2, max = 5) {
       if (carrot) { if (carrot.state === 'mouth') { setMode('eat'); return; } carrot = null; } // never left holding a half-done carrot
@@ -974,8 +989,7 @@ window.mountRabbit = (box, opt = {}) => {
           if (l.y > head - 70 * S && Math.abs(dx) < 40 * S) { // in reach: jump for it
             r.leafAim = null;
             startHops(1, r.face, null, 'leap');
-            if (chance(0.55)) wear(l, 14 * S, -48 * S * look.scale); // caught it on its head
-            else { l.caught = true; l.vr += r.face * 6; l.vy *= 0.5; l.x += r.face * 6 * S; } // batted it away
+            l.caught = true; l.drift += r.face * 30 * S; l.vy *= 0.6; l.ph += 1.2; // batted it: off it flutters
           }
           break;
         }
@@ -1072,7 +1086,7 @@ window.mountRabbit = (box, opt = {}) => {
             r.feIn -= dt;
             if (r.feIn < 0) { r.feIn = rand(0.9, 2); r.feT = pick(FRONT_EARS); }
           }
-          if (r.leaf && (r.leafT -= dt) < 0) { r.shake = 0.9; shed(chance(0.5) ? 1 : -1); } // a shake of the head, off it goes
+          if (r.leaf && (r.leafT -= dt) < 0) { r.shake = 0.9; shed(chance(0.5) ? 1 : -1); } // a shake, off it goes
           // resting and a leaf comes drifting down nearby: off to play catch
           if (!r.leaf && cool.leaf <= 0 && r.act !== 'audience' && rain < 0.3 && chance(dt * 1.2)) {
             const l = leaves.find(x => x.state === 'fall' && !x.caught && x.y < r.y - 90 * S && Math.abs(x.x - r.x) < 240 * S);
@@ -1350,7 +1364,7 @@ window.mountRabbit = (box, opt = {}) => {
     for (const m of shrooms) m.grow = Math.min(1, m.grow + (dt / 20) * lush);
     if (F.mushrooms && shrooms.length < maxShrooms() && worldCool.shroom <= 0) { sproutShroom(); worldCool.shroom = rand(10, 22) / lush; }
     // autumn leaves drift down now and then
-    if (F.leaves && worldCool.leaf <= 0) { dropLeaf(); worldCool.leaf = rand(...tune.leafEvery); }
+    if (F.leaves && worldCool.leaf <= 0 && rain < 0.15) { dropLeaf(); worldCool.leaf = rand(...tune.leafEvery); } // none set off in the rain
     stepLeaves(dt);
     // insects come for the flowers (a lone butterfly sometimes passes even without any)
     const blooms = flowers.filter(blooming).length;
@@ -1410,30 +1424,37 @@ window.mountRabbit = (box, opt = {}) => {
       if (rain > 0.3 && f.on <= 0) fireflies.splice(i, 1);
     }
   }
-  // Leaves: falling (swaying, turning), on the ground for a while, or riding on a rabbit until it
-  // shakes or hops. One drifting down onto a rabbit's head or back may stay there.
+  // Leaves: falling (the pendulum flutter), lying flat on the ground for a while, or lying flat on a
+  // rabbit's back, following its body, until a hop, standing up or a shake sends it off.
   function stepLeaves(dt) {
     const ground = soil() - 1 * S;
     for (let i = leaves.length - 1; i >= 0; i--) {
       const l = leaves[i];
       l.t += dt;
       if (l.state === 'fall') {
-        l.y += l.vy * dt * (1 + rain * 1.5);
-        l.x += (Math.sin(l.t * 1.7 + l.ph) * 30 + rain * 20) * S * dt;
-        l.rot += (l.vr + Math.sin(l.t * 2.1 + l.ph) * 1.6) * dt;
-        for (const b of [main, friend]) { // drifting onto a rabbit's head or back
-          if (!b || b.gone || b.r.leaf || l.caught || b.r.mode === 'hop' || b.r.mode === 'held') continue;
-          const dx = (l.x - b.r.x) * b.r.face, top = b.r.y - (dx > 8 * S ? 46 : 32) * S * b.look.scale;
-          if (Math.abs(dx - 4 * S) < 20 * S && l.y > top - 3 * S && l.y < top + 4 * S && chance(0.5)) b.wear(l, dx, top - b.r.y);
-          else if (Math.abs(dx - 4 * S) < 20 * S && l.y > top + 4 * S) l.caught = true; // passed it by
+        const a = l.t * l.sw + l.ph, swing = Math.sin(a), face = Math.cos(a); // face: ±1 mid-swing, 0 at the ends
+        l.x0 += (l.drift + rain * 30 * S) * dt;
+        const soaked = Math.min(1, rain * 1.6); // rain soaks them and beats them down: fast and straight, little flutter
+        l.x = l.x0 + swing * l.amp * (1 - soaked * 0.8);
+        if (l.tumble) { l.rot0 += l.vr * dt; l.sq = Math.cos(l.t * 3.2 + l.ph); } // over and over
+        else l.sq = face * (0.92 + 0.08 * Math.sin(a * 0.5));
+        l.rot = l.rot0 + swing * 0.55 * (1 - soaked * 0.8); // leaning into the swing
+        l.y += l.vy * dt * ((0.45 + 0.85 * Math.abs(face)) * (1 - soaked) + 4 * soaked); // hangs flat at the ends, drops through the middle; in rain it just drops
+        for (const b of [main, friend]) { // drifting down onto a rabbit's back
+          if (!b || b.gone || b.r.leaf || l.caught || ['hop', 'held', 'fall'].includes(b.r.mode) || b.r.rear > 0.3) continue;
+          const k = b.sc(), lx = (l.x - b.r.x) * b.r.face / k, back = b.r.y + (-29 + 9 * b.r.flat) * k;
+          if (lx > -18 && lx < 12 && l.y > back - 4 * S && l.y < back + 3 * S && chance(0.6)) b.wear(l, lx);
+          else if (lx > -18 && lx < 12 && l.y > back + 3 * S) l.caught = true; // passed it by
         }
-        if (l.y >= ground) { l.state = 'ground'; l.y = ground; l.t = 0; l.rot = rand(-0.5, 0.5) + (chance(0.5) ? Math.PI / 2 : -Math.PI / 2) * 0.2; }
+        if (l.y >= ground) { l.state = 'ground'; l.y = ground; l.t = 0; l.rot = rand(-0.25, 0.25); l.sq = (chance(0.5) ? 1 : -1) * rand(0.22, 0.34); } // flat on the ground
       } else if (l.state === 'ground') {
         if (l.t > 24) { l.fade = Math.max(0, 1 - (l.t - 24) / 4); if (l.fade <= 0) leaves.splice(i, 1); }
       } else if (l.state === 'on') {
         const h = l.host;
-        if (!h || h.gone) { l.state = 'fall'; l.vy = 20 * S; continue; }
-        l.x = h.r.x + l.ox * h.r.face; l.y = h.r.y + l.oy - h.r.air * h.r.hopH * S * h.look.scale; l.rot = l.baseRot + Math.sin(T * 2) * 0.05;
+        if (!h || h.gone) { l.state = 'fall'; l.caught = true; l.t = 0; l.x0 = l.x; continue; }
+        if (h.r.rear > 0.4) { h.shed(h.r.face); continue; } // standing up: it slides off
+        const k = h.sc(); // lies on the top of its back, wherever the body is
+        l.x = h.r.x + l.lx * h.r.face * k; l.y = h.r.y + (-29 + 9 * h.r.flat + 2.2) * k; l.rot = l.baseRot; l.sq = 0.42; // settled into the fur
       }
     }
     while (leaves.filter(l => l.state === 'ground').length > 14) leaves.splice(leaves.findIndex(l => l.state === 'ground'), 1);

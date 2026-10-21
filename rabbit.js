@@ -545,12 +545,12 @@ window.mountRabbit = (box, opt = {}) => {
         goTo(drop.x - dir * 28 * S, () => (lying.includes(drop) ? eatLying(dir, drop) : rest(1, 2)));
         return;
       }
-      if (!F.growCarrots && !carrot && cool.carrot <= 0 && !firstVisit() && chance(0.22)) {
+      if (!F.growCarrots && !carrot && cool.carrot <= 0 && chance(0.22)) {
         carrot = { x: mouthX(), len: 1, state: 'buried', out: 0 };
         setMode('dig', rand(1.4, 2));
         return;
       }
-      const ripe = F.growCarrots && !firstVisit() && nearest(planted, VISION * S, c => c.ripe >= 1);
+      const ripe = F.growCarrots && nearest(planted, VISION * S, c => c.ripe >= 1);
       if (ripe && chance(0.7)) {
         const dir = Math.sign(ripe.x - r.x) || r.face;
         goTo(ripe.x - dir * 28 * S, () => {
@@ -1190,8 +1190,6 @@ window.mountRabbit = (box, opt = {}) => {
   // Going away, it finishes what it's doing and hops off the nearer side; coming back, it hops
   // in from a side, or turns round if it hadn't quite left yet.
   let wantOut = !opt.manual;
-  let visitNo = 0;
-  const firstVisit = () => opt.manual && visitNo <= 1; // no carrots on the first visit: saved as a later surprise
   const spotNear = fromLeft => (fromLeft ? rand(margin() + 20 * S, W * 0.3) : rand(W * 0.7, W - margin() - 20 * S));
   function comeIn() {
     const r = main.r;
@@ -1200,7 +1198,7 @@ window.mountRabbit = (box, opt = {}) => {
       if (r.visit === 'leave') { r.visit = null; r.entering = false; main.goTo(spotNear(r.x < W / 2)); }
       return;
     }
-    entered = true; main.gone = false; r.visit = null; visitNo++;
+    entered = true; main.gone = false; r.visit = null;
     const fromLeft = chance(0.5);
     main.enterFrom(fromLeft, spotNear(fromLeft));
     if (tune.friend && chance(0.6)) worldCool.friend = Math.min(worldCool.friend, rand(20, 50)); // often the friend tags along

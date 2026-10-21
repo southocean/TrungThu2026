@@ -386,6 +386,8 @@ window.mountRabbit = (box, opt = {}) => {
   const pointer = { x: -1e3, y: -1e3, inside: false };
   let main = null, friend = null;
 
+  // ear poses when facing the room: [left, right] tilt. Upright V, tips touching, wide, one out, one flopped
+  const FRONT_EARS = [[-0.16, 0.16], [-0.16, 0.16], [0.13, -0.13], [0.1, -0.04], [-0.38, 0.36], [-0.12, 0.42], [-0.45, 0.1], [-0.75, 0.18], [-0.15, 0.7]];
   function Bunny(look, depth) {
     const me = {};
     const r = {
@@ -397,6 +399,7 @@ window.mountRabbit = (box, opt = {}) => {
       earA: -0.45, earB: -0.2, earAT: -0.45, earBT: -0.2,
       lookX: 0, lookY: 0, lookTX: 0, lookTY: 0, blink: 0, nose: 0, noseRate: 8,
       act: null, actT: 0, blinkIn: 2, earIn: 1, glanceIn: 1.5, zIn: 0, jumpIn: 0, toCam: 0,
+      fe: [-0.16, 0.16], feT: [-0.16, 0.16], feIn: 0, // ear pose while facing the room
       focus: null, focusT: 0, chaseLeft: 0,
       greeted: false, visit: null, stayLeft: 0, shareWith: null, // the friend's visit
       vx: 0, vy: 0, swing: 0, kick: 0, // held / falling
@@ -818,14 +821,21 @@ window.mountRabbit = (box, opt = {}) => {
               r.act = a < 0.26 ? 'groom' : a < 0.48 ? 'sniff' : a < 0.66 ? 'rear' : a < 0.8 ? 'audience' : a < 0.9 ? 'turn' : 'loaf';
               r.actT = { groom: rand(1.4, 2.4), sniff: rand(0.8, 1.6), rear: rand(1.2, 2), audience: rand(1.8, 3.2), turn: 0.01, loaf: rand(1.5, 3) }[r.act];
               if (r.act === 'turn') r.face *= -1;
-              if (r.act === 'audience') { r.lookTX = r.lookTY = 0; r.glanceIn = rand(0.8, 1.6); } // first a straight look
+              if (r.act === 'audience') { // first a straight look, ears straight into a pose
+                r.lookTX = r.lookTY = 0; r.glanceIn = rand(0.8, 1.6);
+                r.feT = pick(FRONT_EARS); r.fe = [...r.feT]; r.feIn = rand(0.9, 2);
+              }
             }
           }
           if (r.act === 'groom') { paw = 1; headDown = 0.25 + Math.sin(r.t * 9) * 0.12; earsT = [-0.7, -0.5]; }
           if (r.act === 'sniff') { headDown = 0.75; noseRate = 24; }
           if (r.act === 'rear') { rear = 1; earsT = [0.05, 0.15]; noseRate = 16; }
           if (r.act === 'loaf') { earsT = [-1, -0.85]; }
-          if (r.act === 'audience') { earsT = [0, 0.12]; noseRate = 10; } // turns its head to the room
+          if (r.act === 'audience') { // turns its head to the room; the ears settle into a pose, now and then another
+            earsT = [0, 0.12]; noseRate = 10;
+            r.feIn -= dt;
+            if (r.feIn < 0) { r.feIn = rand(0.9, 2); r.feT = pick(FRONT_EARS); }
+          }
           // a butterfly right overhead: chin up, eyes up at it
           const hp = headPos(), above = r.act !== 'groom' && bugs.find(b => b.type === 'fly' && Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
           if (above) { r.act = r.act === 'audience' ? null : r.act; headDown = -0.6; rear = Math.max(rear, 0.25); earsT = [0.05, 0.15]; r.lookTX = clamp((above.x - r.x) * r.face / 50, -1, 1); r.lookTY = -1; }
@@ -835,6 +845,7 @@ window.mountRabbit = (box, opt = {}) => {
       r.earAT = earsT[0]; r.earBT = earsT[1];
       const wasFront = r.toCam > 0.5;
       r.toCam = ease(r.toCam, r.mode === 'rest' && r.act === 'audience' ? 1 : 0, 6, dt);
+      r.fe[0] = ease(r.fe[0], r.feT[0], 7, dt); r.fe[1] = ease(r.fe[1], r.feT[1], 7, dt);
       if (wasFront !== r.toCam > 0.5) r.squash = Math.max(r.squash, 0.18); // the turn reads as a little bounce
       r.headDown = ease(r.headDown, headDown, 6, dt);
       r.rear = ease(r.rear, rear, 5, dt);
@@ -926,7 +937,7 @@ window.mountRabbit = (box, opt = {}) => {
     }
     // the head turned to the room (the 'audience' look) on the side-on body: both ears, both eyes
     // and a little smile, still alive: blinks, small glances, ear twitches, a twitching nose and mouth
-    const frontEars = () => { const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; return [[-4.5, -0.16 + tw], [4.5, 0.16 - tw2]]; }; // ear twitches carry over
+    const frontEars = () => { const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; return [[-4.5, r.fe[0] + tw], [4.5, r.fe[1] - tw2]]; }; // pose + twitches
     // head and ears as shapes, so they go into the body's outline pass and the neck has no seam
     const frontHeadShapes = (cx, cy) => [
       ...frontEars().map(([x, a]) => ['e', cx + x + Math.sin(a) * 12, cy - 9 - Math.cos(a) * 12, 4.6, 13.5, a]),

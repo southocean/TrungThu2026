@@ -23,9 +23,13 @@
       ${TABS.map(([k, l]) => `<button type="button" role="tab" id="how-t-${k}" aria-controls="how-p-${k}" aria-selected="false" tabindex="-1" data-tab="${k}">${l}</button>`).join('')}
     </div>
     ${TABS.map(([k]) => `<section class="how-panel" role="tabpanel" id="how-p-${k}" aria-labelledby="how-t-${k}" tabindex="0" hidden></section>`).join('')}`;
-  $('how-close').onclick = () => dlg.close();
-  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
-  dlg.addEventListener('close', () => { clearInterval(tick); document.documentElement.classList.remove('how-open'); });
+  // tidy up right away on every way out (button, click outside, Esc), with the close event as a backstop
+  const closed = () => { clearInterval(tick); document.documentElement.classList.remove('how-open'); window.TTembedSeen?.(); };
+  const closeLog = () => { dlg.close(); closed(); };
+  $('how-close').onclick = closeLog;
+  dlg.addEventListener('click', e => { if (e.target === dlg) closeLog(); });
+  dlg.addEventListener('cancel', closed);
+  dlg.addEventListener('close', closed);
   const tabsEl = dlg.querySelector('.how-tabs');
   tabsEl.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) show(b.dataset.tab); });
   tabsEl.addEventListener('keydown', e => {
@@ -48,10 +52,10 @@
   }
   btn.onclick = () => {
     frame.loading = 'eager';
-    dlg.showModal(); document.documentElement.classList.add('how-open');
+    dlg.showModal(); document.documentElement.classList.add('how-open'); window.TTembedSeen?.();
     show(tab);
   };
-  window.TThow = { show(on) { btn.hidden = !on; if (!on && dlg.open) dlg.close(); } };
+  window.TThow = { show(on) { btn.hidden = !on; if (!on && dlg.open) closeLog(); } };
 
   // ── The ecosystem ─────────────────────────────────────
   const chain = (...steps) => `<span class="how-chain">${steps.map(s => `<i>${esc(s)}</i>`).join('<b aria-hidden="true">→</b>')}</span>`;

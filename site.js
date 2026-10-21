@@ -27,6 +27,22 @@
       .then(() => frame.contentWindow?.TTslides?.fullscreenStart())
       .catch(() => { location.href = a.href; });
   }));
+  // Out of sight (scrolled away, or under the admin Log): the embedded slideshow stops drawing.
+  let embedSeen = true;
+  const seen = () => frame.contentWindow?.TTslides?.visible?.(embedSeen && !document.documentElement.classList.contains('how-open'));
+  let checkT = 0;
+  const check = force => { // where the embed is, on scroll and resize (a plain position check, no observer to wait on)
+    clearTimeout(checkT);
+    checkT = setTimeout(() => {
+      const r = frame.getBoundingClientRect();
+      const now = r.bottom > 0 && r.top < innerHeight && r.width > 0;
+      if (force === true || now !== embedSeen) { embedSeen = now; seen(); }
+    }, 120);
+  };
+  addEventListener('scroll', check, { passive: true });
+  addEventListener('resize', check);
+  frame.addEventListener('load', () => check(true));
+  window.TTembedSeen = seen;
   const onFull = () => frame.contentWindow?.TTslides?.setFull(document.fullscreenElement === frame || document.webkitFullscreenElement === frame);
   document.addEventListener('fullscreenchange', onFull);
   document.addEventListener('webkitfullscreenchange', onFull);

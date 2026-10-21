@@ -252,6 +252,7 @@
   // play and pause; the rabbit button turns it off. Just to watch.
   window.slideRabbit = window.mountRabbit?.(stage, {
     scale: () => (document.body.classList.contains('portrait') ? 2.4 : 2),
+    strip: 250, maxDpr: 1.5, // the meadow's canvas covers the bottom of the stage only, at up to 1.5× density
     manual: true,
     interactive: false,
     enter: true,
@@ -476,6 +477,9 @@
   // The home page puts this embed into fullscreen from its own buttons and tells us so.
   window.TTslides = {
     meadow,
+    // the home page says when its embed is out of sight (scrolled away, or under the admin Log):
+    // then nothing here draws or animates
+    visible(on) { window.slideRabbit?.freeze(!on); document.body.classList.toggle('unseen', !on); },
     setFull(on) { fullFromParent = on; syncFs(); },
     fullscreenStart() { this.setFull(true); if (!reduced) { if (playing) music.sync(true); else setPlay(true); } },
   };

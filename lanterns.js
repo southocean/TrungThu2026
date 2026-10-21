@@ -108,7 +108,7 @@
   }
 
   function measure() {
-    dpr = Math.min(devicePixelRatio || 1, 2);
+    dpr = Math.min(devicePixelRatio || 1, 1.5); // soft glowing shapes: 1.5× is as sharp as they need
     W = innerWidth; H = innerHeight;
     docH = document.documentElement.scrollHeight;
     for (const L of layers) {

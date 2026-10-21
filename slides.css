@@ -144,7 +144,7 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
   .slide.on .sky-lanterns i { animation: fly var(--t) var(--d) linear infinite; }
   .slide.on .e-hang { animation: hover 6s ease-in-out infinite alternate; }
   .slide.on .e-rabbit { animation: hop 3.4s ease-in-out infinite; }
-  .slide.on .e-moonwrap { animation: glow 5s ease-in-out infinite alternate; }
+  .slide.on .e-moonwrap::after { animation: glow 5s ease-in-out infinite alternate; } /* the glow fades in and out as opacity, not as a filter (which repaints every frame) */
 }
 @keyframes drift { from { translate: 0 0; rotate: -6deg; } to { translate: 10px -24px; rotate: 6deg; } }
 @keyframes bob { from { translate: 0 0; } to { translate: 0 -14px; } }
@@ -159,14 +159,15 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
 }
 @keyframes hover { from { translate: 0 0; rotate: -2deg; } to { translate: -30px -26px; rotate: 2deg; } }
 @keyframes hop { 0%, 60%, 100% { translate: 0 0; } 70% { translate: 0 -26px; } 80% { translate: 0 0; } 86% { translate: 0 -10px; } }
-@keyframes glow { to { filter: drop-shadow(0 0 40px rgba(255, 210, 120, .5)); } }
+@keyframes glow { from { opacity: 0; } to { opacity: 1; } }
+.e-moonwrap::after { content: ""; position: absolute; inset: -8%; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(circle, rgba(255, 210, 120, 0) 44%, rgba(255, 210, 120, .34) 47%, rgba(255, 210, 120, 0) 70%); } /* a halo just outside the moon */
+body.unseen *, body.unseen *::before, body.unseen *::after { animation-play-state: paused !important; } /* out of sight on the home page */
 
 /* Controls */
 .controls {
   position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 4px; padding: 6px;
-  background: rgba(10, 12, 30, .78); border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px;
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 12, 30, .9); border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; /* solid, not frosted: a blur over the moving meadow is re-done every frame */
   transition: opacity .35s, transform .35s; z-index: 5;
 }
 .controls button, .controls a { width: 46px; height: 46px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #fff; cursor: pointer; }
@@ -185,8 +186,7 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
 .vol {
   position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translate(-50%, 8px);
   padding: 16px 10px; border-radius: 999px;
-  background: rgba(10, 12, 30, .85); border: 1px solid rgba(255, 255, 255, .16);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 12, 30, .94); border: 1px solid rgba(255, 255, 255, .16);
   opacity: 0; visibility: hidden; transition: opacity .2s, transform .2s, visibility 0s .2s;
 }
 .vol::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 14px; } /* keeps hover alive across the gap */

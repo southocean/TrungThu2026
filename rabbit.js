@@ -71,12 +71,16 @@ window.mountRabbit = (box, opt = {}) => {
 
   let W = 0, H = 0, dpr = 1, S = 1;
   function size() {
-    W = box.clientWidth; H = box.clientHeight;
-    // a box inside a scaled stage (the slideshow) renders at its on-screen size
-    const view = box.getBoundingClientRect().width / W || 1;
-    dpr = Math.min(devicePixelRatio || 1, 2) * view;
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    W = box.clientWidth;
     S = opt.scale ? opt.scale(W) : W < 520 ? 1 : 1.25;
+    // opt.strip: the canvas only covers the bottom strip of the box (in rabbit units), where the meadow
+    // lives, rather than the whole slide: far fewer pixels to clear and composite every frame
+    H = opt.strip ? Math.min(box.clientHeight, Math.round(opt.strip * S)) : box.clientHeight;
+    if (opt.strip) { cv.style.top = 'auto'; cv.style.bottom = '0'; cv.style.height = H + 'px'; }
+    // a box inside a scaled stage (the slideshow) renders at its on-screen size, capped by opt.maxDpr
+    const view = box.getBoundingClientRect().width / W || 1;
+    dpr = Math.min(Math.min(devicePixelRatio || 1, 2) * view, opt.maxDpr || 2);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   }
   // Feet sit right on the bottom edge; depth (0 back … 1 front) only shifts a few pixels.
   const groundY = d => H - 7 * S - (1 - d) * 6 * S;
@@ -211,7 +215,7 @@ window.mountRabbit = (box, opt = {}) => {
   function wander(b, rise = 0) {
     b.state = 'wander'; b.t = 0; b.wanderFor = rand(1.5, 3.5);
     const around = flowers.length ? b.x : main.gone ? rand(W * 0.2, W * 0.8) : main.r.x; // with no flowers about, it flits around the rabbit
-    b.wx = clamp(around + rand(-220, 220) * S, 30 * S, W - 30 * S); b.wy = soil() - rand(60 + rise, 160 + rise) * S;
+    b.wx = clamp(around + rand(-220, 220) * S, 30 * S, W - 30 * S); b.wy = Math.max(30 * S, soil() - rand(60 + rise, 160 + rise) * S);
   }
   function stepBugs(dt, fleeing) {
     for (let i = bugs.length - 1; i >= 0; i--) {
@@ -223,10 +227,10 @@ window.mountRabbit = (box, opt = {}) => {
       if (fleeing || (b.age > b.life && b.state !== 'sip')) b.state = 'leave';
       if (b.state === 'leave') {
         b.parked = false;
-        if (b.exitX == null) { b.exitX = b.x < W / 2 ? -60 * S : W + 60 * S; b.exitY = -40 * S; }
+        if (b.exitX == null) { b.exitX = b.x < W / 2 ? -60 * S : W + 60 * S; b.exitY = Math.max(24 * S, b.y - 70 * S); } // out to the side, rising a little
         moveBug(b, b.exitX, b.exitY, (bee ? 220 : 130) * S * (fleeing ? 2 : 1), dt);
         b.y += Math.sin(b.t * (bee ? 14 : 5)) * (bee ? 20 : 30) * S * dt;
-        if (b.x < -50 * S || b.x > W + 50 * S || b.y < -30 * S) bugs.splice(i, 1);
+        if (b.x < -50 * S || b.x > W + 50 * S || b.y < -30 * S) bugs.splice(i, 1); // (gone once off the side)
         continue;
       }
       if (b.state === 'seek') {
@@ -1372,8 +1376,10 @@ window.mountRabbit = (box, opt = {}) => {
   // Runs while active. When it stops being active (the slideshow pauses) the ground freezes
   // but the loop keeps going just long enough for the insects to fly off.
   let running = false, fleeing = false, last = 0;
+  let frozen = false;
   function frame(now) {
     if (!running) return;
+    if (frozen) { running = false; return; }
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     if (fleeing) {
@@ -1473,6 +1479,7 @@ window.mountRabbit = (box, opt = {}) => {
   // a handle for poking at the meadow from the console
   return {
     configure, show, features: F, tune, bugs, flowers, planted,
+    freeze(on) { frozen = on; if (!on && (wantOut || !main.gone || bugs.length || rain > 0.01 || fireflies.length)) start(); },
     // for the admin Log's gallery: run the world for a moment (hold() keeps a pose each step), then draw once
     settle(secs = 0, hold) { for (let i = 0; i < Math.round(secs * 60); i++) { step(1 / 60); hold?.(); } render(); },
     paint() { render(); }, size() { size(); }, get W() { return W; }, get S() { return S; }, groundY, soil, LOOKS,

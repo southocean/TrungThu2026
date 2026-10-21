@@ -56,7 +56,11 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
 .acts span { position: absolute; left: 0; right: 0; bottom: 0; padding: 60px 28px 22px; font-size: 40px; font-weight: 700; background: linear-gradient(transparent, rgba(0, 0, 0, .78)); }
 
 /* 4 · Membership */
-.s-member { background: radial-gradient(circle at 100% 0, rgba(255, 201, 74, .25), transparent 50%), linear-gradient(135deg, #a8101f, #e0262f 55%, #ff6a4d); }
+/* red as the accent: a warm glow behind the title, settling into the show's night blue at the bottom so the meadow reads like on every other slide */
+.s-member { background:
+  radial-gradient(ellipse 70% 55% at 18% 0%, rgba(255, 106, 77, .45), transparent 70%),
+  radial-gradient(circle at 100% 0, rgba(255, 201, 74, .18), transparent 45%),
+  linear-gradient(172deg, #b3142a 0%, #8c1238 24%, #4a1550 50%, #1a1a4e 76%, #0d1638 100%); }
 .m-text { position: absolute; left: 150px; top: 190px; }
 .s-member h2 { color: #fff; font-size: 100px; }
 .m-price { font-size: 52px; margin: 30px 0 70px; }

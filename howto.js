@@ -83,7 +83,7 @@
       states: [['In the ground', `${chain('sprout', 'ripen 38 s', 'a rabbit spots it', 'dig', 'pull', 'eat or share')} · faster on wet ground`]] },
     { id: 'grass', dot: '#4f9a5c', name: 'Grass', what: 'Clumps across the whole floor, each needing a grass level to show; each blade a little more.',
       states: [['Level', `${chain('bare', 'a few clumps (15:30)', 'patchy', 'thick', 'full meadow (after the heavy rain)')}`]] },
-    { id: 'shroom', dot: '#c99256', name: 'Mushrooms', what: 'Brown, tan and golden caps in the grass, in season. Only from the grass on (event 15:45, visitors 1:00).',
+    { id: 'shroom', dot: '#c99256', name: 'Mushrooms', what: 'Brown, tan and golden caps in the grass, in season. After more flowers, right after a rain (event 16:30, visitors 3:10).',
       states: [['Life', `${chain('come up (about 20 s)', 'ready', 'a rabbit nibbles it down', 'gone')} · faster on wet ground`]] },
     { id: 'leaf', dot: '#e8722a', name: 'Autumn leaves', what: 'Maple-ish leaves in orange, red, gold and brown drift down now and then (event 16:15, visitors 0:40).',
       states: [['Life', `${chain('drift down, swaying and turning', 'lie on the ground', 'fade')} · or land on a rabbit's head or back and ride there until it shakes or hops`]] },

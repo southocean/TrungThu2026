@@ -148,7 +148,7 @@
     const chips = [
       ['Clock', `${s.time} · ${{ live: 'live, Stockholm', play: 'play time', sim: `simulated ${s.speed}×` }[s.source]}`],
       ['Phase', s.phase + (s.quiet ? ' · quiet stretch' : '')],
-      ['Jade rabbit', !rb.on ? 'switched off' : rb.seen < rb.of ? `waiting, ${rb.seen}/${rb.of} slides seen` : rabbitState(w.main, w.present)],
+      ['Jade rabbit', !rb.on ? 'switched off' : rb.waiting ? `waiting, ${rb.seen}/${rb.of} slides seen` : rabbitState(w.main, w.present)],
       ['Friend', w.friend ? `${rabbitState(w.friend, true)} · ${w.tune.resident ? 'resident' : 'visiting'}` : w.tune.friend ? 'not here' : 'not yet (from 14:15)'],
       ['Butterflies', flies.length ? fmtCount(count(flies, b => (b.state === 'sip' ? 'perched' : b.state === 'leave' ? 'leaving' : 'flying'))) : 'none'],
       ['Bees', bees.length ? fmtCount(count(bees, b => (b.parked ? 'parked' : b.state === 'leave' ? 'leaving' : 'buzzing'))) : w.features.bees ? 'none right now' : 'not yet (16:20)'],
@@ -211,7 +211,7 @@
       <h3>The clock</h3>
       <p>On Saturday 24 October it’s the real time in Stockholm, so a pause, a reload or a second screen never puts the meadow out of step. Any other day it’s play time counted from 14:00. Admin can run a simulated clock at 1×, 10× or 60× from the panel beside the slideshow; it lives only in that browser tab.</p>
       <h3>Before anything: the guard</h3>
-      <p>The rabbit stays hidden until every slide has been on screen for 5 s in one go (remembered for the day), so the room sees the slides clean first. Then the stage plan below takes over. The rabbit button in the slideshow (or <kbd>R</kbd>) turns it all off.</p>
+      <p>On the day, from 13:00 (an hour before the start, by the real Stockholm clock), the rabbit stays hidden until every slide has been on screen for 5 s in one go (remembered for the day), so the room sees the slides clean first. Before that, and after the day, there is no guard: anyone opening the site gets the rabbit straight away. Then the stage plan below takes over. The rabbit button in the slideshow (or <kbd>R</kbd>) turns it all off.</p>
       <h3>Every milestone</h3>
       <div class="how-table"><table><thead><tr><th>At</th><th>Milestone</th><th>Switches on / sets</th><th>Rabbit out / away</th></tr></thead><tbody>
         ${m.phaseDetail.map((p, i) => `<tr><td class="num">${esc(p.at)}</td><td>${esc(p.name)}</td><td><code>${esc(featureText(p))}</code></td><td>${esc(m.phases[i].stage || '')}</td></tr>`).join('')}

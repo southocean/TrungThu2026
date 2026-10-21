@@ -404,7 +404,7 @@
     force: what => (what === 'rain' ? (forcedRain = performance.now() + 40000, window.slideRabbit?.weather(weatherNow())) : window.slideRabbit?.force(what)),
     rabbit() {
       const plan = planNow();
-      return { on: rabbitOn, seen: seen.size, of: N, out, nextIn: turnAt ? Math.max(0, (turnAt - performance.now()) / 1000) : null,
+      return { on: rabbitOn, seen: seen.size, of: N, guard: guardOn(), waiting: guardOn() && seen.size < N, out, nextIn: turnAt ? Math.max(0, (turnAt - performance.now()) / 1000) : null,
         plan: plan === 'always' ? 'always out' : `out ${plan.on[0]}–${plan.on[1]} s, away ${plan.off[0]}–${plan.off[1]} s` };
     },
     rabbitNow() { if (turnAt) turnAt = 1; stageTick(0); }, // end the current visit or break now
@@ -418,6 +418,11 @@
   // Then it follows the stage plan: visits and breaks, longer visits as the afternoon goes on,
   // rare in the quiet stretch, always out from 16:10. The rabbit button (or R) turns it off.
   const GUARD_MS = 5000;
+  // The guard only applies on the day itself, from an hour before the start (13:00 Stockholm, by the
+  // real clock, whatever the admin clock says). Before that, and after the day, anyone opening the site
+  // gets the rabbit straight away: nobody browsing would ever sit through a whole loop first.
+  const GUARD_FROM = 13 * 60;
+  const guardOn = () => { const w = wallClock(); return w.day === EVENT_DAY && w.min >= GUARD_FROM; };
   const seenKey = `tt-seen-${wallClock().day}`;
   let seen = new Set();
   try { seen = new Set(JSON.parse(localStorage.getItem(seenKey)) || []); } catch {}
@@ -443,7 +448,7 @@
       lastPlan = plan;
     }
     let want;
-    if (!rabbitOn || seen.size < N) { want = false; turnAt = 0; }
+    if (!rabbitOn || (guardOn() && seen.size < N)) { want = false; turnAt = 0; }
     else if (plan === 'always') { want = true; turnAt = 0; }
     else if (!turnAt) { want = true; turnAt = now + secs(plan.on); } // first time out, or coming off 'always'
     else if (now >= turnAt) { want = !out; turnAt = now + secs(want ? plan.on : plan.off); }
@@ -468,7 +473,7 @@
   function showHud() {
     const s = meadow.state(), src = { live: 'live', play: 'play time', sim: `simulated ×${s.speed}` }[s.source];
     const rb = meadow.rabbit();
-    const rab = !rb.on ? 'rabbit off' : rb.seen < rb.of ? `rabbit waits: ${rb.seen}/${rb.of} slides seen` :
+    const rab = !rb.on ? 'rabbit off' : rb.waiting ? `rabbit waits: ${rb.seen}/${rb.of} slides seen` :
       `rabbit ${rb.out ? 'out' : 'away'}` + (rb.nextIn != null ? ` ${Math.round(rb.nextIn)} s more` : '');
     hud.textContent = `${s.time} (${src}) · ${s.phase}` + (s.next ? ` · next ${s.next.at}: ${s.next.name}` : '') + (s.quiet ? ' · quiet' : '') + ` · ${rab}`;
   }

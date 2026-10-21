@@ -202,11 +202,12 @@
     $('dt-live').disabled = s.source !== 'sim';
     const r = m.rabbit(), left = r.nextIn != null ? ` · ${Math.floor(r.nextIn / 60)}:${String(Math.round(r.nextIn % 60)).padStart(2, '0')} left` : '';
     $('dt-rabbit').innerHTML = !r.on ? '<b>Rabbit off</b> (button in the slideshow)' :
-      r.seen < r.of ? `<b>Rabbit waits for the first loop</b> · ${r.seen}/${r.of} slides seen 5 s` :
+      r.waiting ? `<b>Rabbit waits for the first loop</b> · ${r.seen}/${r.of} slides seen 5 s` :
       `<b>Rabbit ${r.out ? 'out' : 'away'}</b>${left}<br><span>Now: ${esc(r.plan)}</span>`;
     $('dt-turn').textContent = r.out ? 'End visit now' : 'Bring it out now';
-    $('dt-turn').disabled = !r.on || r.seen < r.of || r.nextIn == null;
+    $('dt-turn').disabled = !r.on || r.waiting || r.nextIn == null;
     $('dt-guard').textContent = r.seen < r.of ? 'Pass guard' : 'Reset guard';
+    $('dt-guard').title = r.guard ? 'The guard is on (event day, from 13:00)' : 'The guard is off until 13:00 on 24/10; visitors get the rabbit straight away';
     panel.querySelectorAll('#dt-rail [data-min]').forEach((b, i) => {
       b.classList.toggle('on', i === s.idx);
       b.classList.toggle('past', i < s.idx);

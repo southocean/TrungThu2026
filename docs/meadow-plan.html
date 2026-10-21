@@ -1,0 +1,177 @@
+<title>Rabbit Meadow Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=Playfair+Display:wght@900&display=swap">
+<style>
+  /* Layout: one reading column on the slideshow's night sky; the timeline is a minute rail. */
+  :root {
+    --night: #0d1638; --night-2: #16225a; --ink: #fff7e8; --ink-soft: #c9c3dc;
+    --gold: #ffc94a; --pink: #ff7aa2; --leaf: #5fae6a; --line: rgba(255, 255, 255, .14);
+    --display: "Playfair Display", Georgia, serif;
+    --body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  body { background: var(--night); color: var(--ink); font: 16px/1.6 var(--body); }
+  main { max-width: 880px; margin: 0 auto; padding-block: 48px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 46px; }
+  h1, h2 { font-family: var(--display); font-weight: 900; color: var(--gold); text-wrap: balance; margin: 0; line-height: 1.1; }
+  h1 { font-size: clamp(34px, 6vw, 52px); }
+  h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+  h3 { margin: 0 0 4px; font-size: 17px; }
+  p { margin: 0 0 12px; max-width: 70ch; }
+  .lede { color: var(--ink-soft); font-size: 18px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 13px; font-weight: 700; color: var(--pink); margin-bottom: 10px; }
+  code, kbd { font-size: .92em; background: var(--night-2); padding: 1px 6px; border-radius: 5px; }
+  kbd { border: 1px solid var(--line); font-family: var(--body); font-weight: 700; }
+  ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  .rule { border-left: 4px solid var(--gold); padding: 14px 18px; background: rgba(255, 201, 74, .07); border-radius: 0 12px 12px 0; }
+  .calm { color: var(--ink-soft); font-size: 14px; }
+
+  .rail { list-style: none; margin: 0; padding: 0; }
+  .rail li { display: grid; grid-template-columns: 74px 1fr; gap: 18px; position: relative; padding-bottom: 22px; }
+  .rail li::before { content: ""; position: absolute; left: 86px; top: 8px; bottom: -4px; width: 2px; background: var(--line); }
+  .rail li:last-child::before { display: none; }
+  .rail time { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold); text-align: right; font-size: 17px; }
+  .rail .body { padding-left: 18px; position: relative; min-width: 0; }
+  .rail .body::before { content: ""; position: absolute; left: -9px; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 4px var(--night); }
+  .rail .eco .body::before { background: var(--leaf); }
+  .rail .idea .body::before { background: transparent; border: 2px dashed var(--ink-soft); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; }
+  .built { background: rgba(95, 174, 106, .2); color: #9fe0a8; }
+  .idea-tag { background: rgba(255, 255, 255, .08); color: var(--ink-soft); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--gold); font-weight: 700; background: var(--night-2); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: rgba(255, 255, 255, .03); min-width: 0; }
+  @media (max-width: 520px) { .rail li { grid-template-columns: 52px 1fr; gap: 12px; } .rail li::before { left: 58px; } }
+</style>
+
+<main>
+  <header>
+    <p class="eyebrow">Trung Thu 2026 · slideshow</p>
+    <h1>Rabbit Meadow Plan</h1>
+    <p class="lede">How the slideshow's jade rabbit and its little world grow over a long afternoon of looping, so the slides are readable at first and stay fresh later. Everything on the timeline below is built; tweak the numbers here and in <code>PHASES</code> in <code>slides.js</code>.</p>
+  </header>
+
+  <section>
+    <h2>The idea</h2>
+    <div class="rule">
+      <p><b>Complexity is a distraction, but a welcome one once people are bored of the slides.</b> It starts with just the rabbit and adds one thing at a time as total play time grows. The first ten minutes stay quiet so people actually read the slides.</p>
+    </div>
+    <p style="margin-top:14px">Phases follow <b>total play time</b>: only time with autoplay running counts. Play 10 min, pause 1 min, play 20 min = 30 min. The clock is kept in the browser per day, so reloading the page on the day carries on where it was; a new day starts from zero.</p>
+  </section>
+
+  <section>
+    <h2>QA without waiting</h2>
+    <div class="grid2">
+      <div class="card"><h3><kbd>T</kbd> readout</h3><p>Shows play time, the current phase and the next one, top-left of the slideshow.</p></div>
+      <div class="card"><h3><kbd>[</kbd> <kbd>]</kbd> jump</h3><p>Step play time back or forward 5 minutes. The scene switches phase straight away.</p></div>
+      <div class="card"><h3><code>?playtime=60</code></h3><p>Open <code>slides.html?playtime=60</code> to start at minute 60. <code>?playtime=0</code> resets the clock.</p></div>
+      <div class="card"><h3>Console</h3><p><code>slideRabbit.force('friend')</code>, <code>'friendLeave'</code>, <code>'fly'</code>, <code>'bee'</code>, <code>'flower'</code>, <code>'carrot'</code>, <code>'dig'</code>, <code>'sleep'</code>, <code>'sploot'</code>, <code>'binky'</code>, <code>'chase'</code>, <code>'stroll'</code>. Same on <code>siteRabbit</code>.</p></div>
+    </div>
+    <p class="calm" style="margin-top:12px">Note that a new element appears gently: grass takes about 2.5 min to grow in, flowers take 12–18 s to bloom, the first friend visit comes 20–45 s after its phase starts.</p>
+  </section>
+
+  <section>
+    <h2>Phase-in timeline</h2>
+    <p class="calm">Minutes of total play time. Gold = the rabbits and visitors, green = the ecosystem, dashed = ideas not built yet.</p>
+    <ol class="rail">
+      <li><time>0</time><div class="body"><h3>Just the rabbit <span class="tag built">built</span></h3>
+        <p>Hops in from a side on the first play. Rests, grooms, sniffs, stands up to look around, short hops toward open space (never more than 6 in a row), strolls, sploots, naps with z's. Digs up a carrot on the spot every 1–2 min and eats it. No butterflies, no binkies yet.</p></div></li>
+      <li><time>10</time><div class="body"><h3>A butterfly <span class="tag built">built</span></h3>
+        <p>One round-winged butterfly at a time, roughly every couple of minutes, flitting around the rabbit. The rabbit watches, hops after it and binkies when it dips low. Binkies unlock.</p></div></li>
+      <li><time>15</time><div class="body"><h3>A friend visits <span class="tag built">built</span></h3>
+        <p>A smaller cream rabbit with brown ears and a brown back patch hops in from the nearer side every 9–12 min and stays 1–1.7 min. The two touch noses, stay near each other, play follow-the-leader, groom each other or sploot side by side, then the friend hops off.</p></div></li>
+      <li><time>25</time><div class="body"><h3>More butterflies <span class="tag built">built</span></h3>
+        <p>Up to 2 at once, about twice as often.</p></div></li>
+      <li><time>40</time><div class="body"><h3>Friends share <span class="tag built">built</span></h3>
+        <p>When one rabbit pulls up a carrot the other may hop over and nibble the other end; it goes 1.8× faster. Visits every 6–9 min, lasting 1.5–2.5 min.</p></div></li>
+      <li class="eco"><time>60</time><div class="body"><h3>Grass grows in <span class="tag built">built</span></h3>
+        <p>Low grass patches rise out of the floor a few blades at a time over about 2.5 minutes.</p></div></li>
+      <li class="eco"><time>70</time><div class="body"><h3>Carrots grow in the ground <span class="tag built">built</span></h3>
+        <p>Digging on the spot stops. One carrot at a time sprouts among the grass and ripens over 50 s; a rabbit that sees a ripe one (within 260 units) goes and digs it up.</p></div></li>
+      <li class="eco"><time>80</time><div class="body"><h3>First flowers <span class="tag built">built</span></h3>
+        <p>Up to 2 flowers: sprout, bud, bloom about a minute, wilt, gone. Butterflies now look for blooms, land, sip and move on; rabbits sometimes smell a flower.</p></div></li>
+      <li class="eco"><time>88</time><div class="body"><h3>More flowers <span class="tag built">built</span></h3>
+        <p>Up to 4 flowers and 2 carrots in the ground.</p></div></li>
+      <li class="eco"><time>95</time><div class="body"><h3>A bee <span class="tag built">built</span></h3>
+        <p>One bee: fast zig-zags, hovers over flowers instead of landing. A rabbit flattens its ears and hops away if it buzzes at its face.</p></div></li>
+      <li class="eco"><time>110</time><div class="body"><h3>Full meadow <span class="tag built">built</span></h3>
+        <p>Up to 8 flowers (fewer on narrow screens), 3 butterflies, 2 bees; the friend visits every 4–6 min.</p></div></li>
+      <li class="idea"><time>130+</time><div class="body"><h3>Later surprises <span class="tag idea-tag">ideas</span></h3>
+        <p>Fireflies around the flowers while a rabbit naps · falling autumn leaves · a short rain shower that speeds up growth · a dropped mooncake to nibble · a slow snail the rabbit sniffs.</p></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>The afternoon</h2>
+    <p>Saturday 24 Oct, 14:00–17:00 at Danderydsgården. Some programme items need the slides or the music paused, so expect roughly 1.5–2.5 hours of play time in total.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Clock</th><th>Programme</th><th>Slideshow</th></tr></thead>
+      <tbody>
+        <tr><td class="num">14:00</td><td>Đón khách</td><td>Looping with music</td></tr>
+        <tr><td class="num">14:30</td><td>Khai mạc</td><td>Likely paused (speeches)</td></tr>
+        <tr><td class="num">14:45</td><td>Trò chơi & biểu diễn</td><td>Music off, slides may loop</td></tr>
+        <tr><td class="num">15:15</td><td>Kahoot</td><td>Paused, projector used for the quiz</td></tr>
+        <tr><td class="num">15:30</td><td>Phá cỗ & rước đèn</td><td>Looping again</td></tr>
+        <tr><td class="num">16:15</td><td>Fika & vẽ mặt</td><td>Looping</td></tr>
+        <tr><td class="num">17:00</td><td>Giao lưu văn nghệ</td><td>Looping or paused for dancing</td></tr>
+      </tbody>
+    </table></div>
+    <p class="calm" style="margin-top:10px">Rough guess: the friend shows up around 14:20, the ecosystem (60 min of play) somewhere around 15:30–16:00, when people have seen the slides many times. If the slideshow starts early during setup, all of this comes earlier: reset with <code>?playtime=0</code> just before 14:00 if needed.</p>
+  </section>
+
+  <section>
+    <h2>The phase table</h2>
+    <p>In <code>slides.js</code>, <code>PHASES</code>. Each row applies on top of the ones before it. <code>features</code> switches ecosystem parts on; <code>tune</code> sets how busy it is.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>At (min)</th><th>Name</th><th>Features</th><th>Tune</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0</td><td>Just the rabbit</td><td>none</td><td><code>flies 0, binky false</code></td></tr>
+        <tr><td class="num">10</td><td>A butterfly</td><td></td><td><code>flies 1, flyChance 0.06, binky true</code></td></tr>
+        <tr><td class="num">15</td><td>A friend visits</td><td></td><td><code>friend true, friendEvery [540, 720] s, friendStay [60, 100] s</code></td></tr>
+        <tr><td class="num">25</td><td>More butterflies</td><td></td><td><code>flies 2, flyChance 0.12</code></td></tr>
+        <tr><td class="num">40</td><td>Friends share</td><td></td><td><code>share true, friendEvery [360, 540], friendStay [90, 150]</code></td></tr>
+        <tr><td class="num">60</td><td>Grass grows in</td><td><code>grass</code></td><td></td></tr>
+        <tr><td class="num">70</td><td>Carrots grow in the ground</td><td><code>growCarrots</code></td><td><code>carrots 1</code></td></tr>
+        <tr><td class="num">80</td><td>First flowers</td><td><code>flowers</code></td><td><code>flowers 2</code></td></tr>
+        <tr><td class="num">88</td><td>More flowers</td><td></td><td><code>flowers 4, carrots 2</code></td></tr>
+        <tr><td class="num">95</td><td>A bee</td><td><code>bees</code></td><td><code>bees 1</code></td></tr>
+        <tr><td class="num">110</td><td>Full meadow</td><td></td><td><code>flowers 8, flies 3, bees 2, flyChance 0.18, friendEvery [240, 360]</code></td></tr>
+      </tbody>
+    </table></div>
+    <p class="calm" style="margin-top:10px"><code>flyChance</code> is the odds a butterfly turns up at each check (every 4–9 s) while there's room for one: 0.06 ≈ one every 1.5–2 min, 0.12 ≈ every minute. With flowers blooming they come for the flowers at 0.45 or more.</p>
+  </section>
+
+  <section>
+    <h2>Rules that keep it calm</h2>
+    <ul>
+      <li>Everything lives in the bottom strip of the stage; insects stay within about 160 rabbit-units of the floor.</li>
+      <li>Caps scale with stage width, so a phone never gets crowded.</li>
+      <li>Pause freezes the ground exactly, insects fly off for a clean slide, and the play-time clock stops.</li>
+      <li>The site's membership-box rabbit stays at the base level (rabbit, carrots, the odd butterfly), with no phases and no friend.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What's in the code</h2>
+    <p><code>rabbit.js</code> is one file for every rabbit on the site and the slideshow. The world (grass, flowers, carrots in the ground, insects) is shared; each rabbit is its own <code>Bunny</code> with its own state, cooldowns and look.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Element</th><th>Behaviour and numbers</th></tr></thead>
+      <tbody>
+        <tr><td>Rabbit</td><td>Rest fidgets (blink, glance, ears, groom, sniff, stand up, loaf); hops with crouch, arc and landing squash; max 6 hops then rest; strolls remember their goal; sploot every 20–40 s at most; nap 8–15 s every 1.5–2.5 min with a stretch; binky every 15–35 s at most. The roll-over is gone.</td></tr>
+        <tr><td>Friend rabbit</td><td>86% size, cream fur, brown ears and back patch. Arrives from the nearer side, greets with a 2.4 s nose touch, then plays every 14–24 s at most: follow-the-leader (½ of the time), grooming, side-by-side sploot. Shares carrots when <code>share</code> is on (65% of the time, within 320 units).</td></tr>
+        <tr><td>Carrots on the spot</td><td>Dig 1.4–2 s, pull 0.9 s, eat 5.5 s (1.8× faster when shared), 10–20 s between. On the site, grabbing mid-meal leaves the carrot on the floor (up to 5).</td></tr>
+        <tr><td>Butterflies</td><td>Round wings (pointed and swallowtail still drawn in code), six colours. Without flowers they flit around the rabbit; with flowers they seek blooms, sip 3–7 s, visit 2–4, leave after 30–55 s. A rabbit chases one at a time for 8–14 s, switching every 4–7 s.</td></tr>
+        <tr><td>Grass</td><td>Patches every ~150 units, 26–70 wide, blades 5–14 high, sway; ~22% of blades in front of the rabbits. Grows in over 150 s.</td></tr>
+        <tr><td>Flowers</td><td>Daisy, pink daisy, star, tulip, bellflower. Grow 12–18 s, bloom 45–75 s, wilt 7–10 s.</td></tr>
+        <tr><td>Carrots in the ground</td><td>Ripen in 50 s, a new one every 20–35 s while there's room, spotted within 260 units.</td></tr>
+        <tr><td>Bees</td><td>Need blooms. 150 units/s with zig-zags, hover 1.5–3 s per flower, 3–6 visits; rabbits avoid within 45 units.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="calm" style="margin-top:10px">“Units” are rabbit-scaled pixels: on the 1920-wide slideshow stage one unit is 2 px.</p>
+  </section>
+</main>

@@ -255,7 +255,68 @@
     watch: document.body,
     interactive: false,
     enter: true,
+    tune: { flies: 0, binky: false },
   });
+
+  // ── Meadow phases ──
+  // The scene grows with total play time (only time spent playing counts, across pauses and
+  // page reloads on the same day), so the slides stay readable at first and fresh later.
+  // Specs and reasoning: docs/meadow-plan.html. Each row applies on top of the ones before it.
+  const PHASES = [
+    { at: 0, name: 'Just the rabbit', features: {}, tune: { flies: 0, binky: false } },
+    { at: 10, name: 'A butterfly', tune: { flies: 1, flyChance: 0.06, binky: true } },
+    { at: 15, name: 'A friend visits', tune: { friend: true, friendEvery: [540, 720], friendStay: [60, 100] } },
+    { at: 25, name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 } },
+    { at: 40, name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] } },
+    { at: 60, name: 'Grass grows in', features: { grass: true } },
+    { at: 70, name: 'Carrots grow in the ground', features: { growCarrots: true }, tune: { carrots: 1 } },
+    { at: 80, name: 'First flowers', features: { flowers: true }, tune: { flowers: 2 } },
+    { at: 88, name: 'More flowers', tune: { flowers: 4, carrots: 2 } },
+    { at: 95, name: 'A bee', features: { bees: true }, tune: { bees: 1 } },
+    { at: 110, name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
+  ];
+  const clockKey = `tt-playtime-${new Date().toISOString().slice(0, 10)}`;
+  let playMs = 0;
+  try { playMs = Number(localStorage.getItem(clockKey)) || 0; } catch {}
+  const startParam = new URLSearchParams(location.search).get('playtime');
+  if (startParam !== null && Number.isFinite(Number(startParam))) playMs = Number(startParam) * 60000; // QA: ?playtime=60 starts at minute 60, ?playtime=0 resets
+  let phaseIdx = -1;
+  function applyPhase() {
+    const min = playMs / 60000;
+    const idx = PHASES.reduce((k, p, i) => (min >= p.at ? i : k), 0);
+    if (idx === phaseIdx || !window.slideRabbit) return;
+    phaseIdx = idx;
+    const features = { grass: false, flowers: false, growCarrots: false, bees: false }, tune = {};
+    for (const p of PHASES.slice(0, idx + 1)) { Object.assign(features, p.features); Object.assign(tune, p.tune); }
+    slideRabbit.configure({ features, tune });
+  }
+  let lastTick = performance.now(), saveIn = 0;
+  setInterval(() => {
+    const now = performance.now();
+    if (playing) {
+      playMs += now - lastTick;
+      if ((saveIn -= 1) <= 0) { saveIn = 5; try { localStorage.setItem(clockKey, String(Math.round(playMs))); } catch {} }
+    }
+    lastTick = now;
+    applyPhase();
+    if (!hud.hidden) showHud();
+  }, 1000);
+
+  // QA: T shows play time and the phase, [ and ] step back or forward 5 minutes.
+  const hud = document.createElement('p');
+  hud.className = 'meadow-hud'; hud.hidden = true;
+  document.body.append(hud);
+  function showHud() {
+    const min = playMs / 60000, cur = PHASES[Math.max(0, phaseIdx)], next = PHASES[phaseIdx + 1];
+    const mm = Math.floor(min), ss = String(Math.floor((playMs / 1000) % 60)).padStart(2, '0');
+    hud.textContent = `Play time ${mm}:${ss} · ${cur.name}` + (next ? ` · next at ${next.at} min: ${next.name}` : '');
+  }
+  function shiftPlay(min) {
+    playMs = Math.max(0, playMs + min * 60000);
+    try { localStorage.setItem(clockKey, String(Math.round(playMs))); } catch {}
+    applyPhase(); hud.hidden = false; showHud();
+  }
+  applyPhase();
 
   // The home page puts this embed into fullscreen from its own buttons and tells us so.
   window.TTslides = {
@@ -319,6 +380,9 @@
     else if (k === 'p' || k === 'P') togglePlay();
     else if (k === 'm' || k === 'M') music.toggle();
     else if (k === 'l' || k === 'L') I18N.set(I18N.next());
+    else if (k === 't' || k === 'T') { hud.hidden = !hud.hidden; showHud(); }
+    else if (k === ']') shiftPlay(5);
+    else if (k === '[') shiftPlay(-5);
     else if (/^[1-9]$/.test(k)) go(Number(k) - 1);
     else return;
     wake();

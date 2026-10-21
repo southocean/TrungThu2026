@@ -314,3 +314,7 @@ body.admin .ss-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px
 .dt-quiet time { color: var(--ink-soft); }
 .dt-more summary { cursor: pointer; color: var(--ink-soft); font-weight: 600; margin-bottom: 8px; }
 .dt-doc { font-weight: 700; }
+.dt-rail small { display: block; font-size: 11.5px; color: var(--ink-soft); font-weight: 400; }
+.dt-rabbit { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.dt-rabbit p { margin: 0; color: var(--ink-soft); line-height: 1.45; }
+.dt-rabbit b { color: var(--ink); }

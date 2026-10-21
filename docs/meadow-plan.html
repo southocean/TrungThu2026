@@ -60,48 +60,49 @@
   <section>
     <h2>The idea</h2>
     <div class="rule">
-      <p><b>Complexity is a distraction, but a welcome one once people are bored of the slides.</b> It starts with just the rabbit and adds one thing at a time over the afternoon. The first ten minutes stay calm so people actually read the slides.</p>
+      <p><b>Complexity is a distraction, but a welcome one once people are bored of the slides.</b> The rabbit waits until the room has seen every slide, then comes and goes, staying a little longer each time, until late in the afternoon it stays. One new thing at a time, so there's always something new coming up.</p>
     </div>
-    <p style="margin-top:14px">Phases follow <b>the event clock</b>. On Saturday 24 Oct it is the real time in Stockholm, so a pause, a reload or a second screen never puts the meadow out of step: if the projector is taken for Kahoot, the meadow has simply grown when the slides come back. Before 14:00 (setup) it stays at the start, after 16:40 it stays full.</p>
-    <p>No milestone lands in the <b>quiet stretch, 14:30–15:30</b> (speeches, games and performances, Kahoot), when people should watch the stage or the projector is in use. The scene keeps playing then, it just doesn't add anything new.</p>
-    <p class="calm">On any other day (people browsing the site) there's no event to follow, so the clock is play time counted from 14:00: only time with autoplay running counts, kept in the browser per day.</p>
+    <p style="margin-top:14px"><b>The guard.</b> The rabbit doesn't come out until every slide has been on screen for 5 s in one go: a full autoplay loop, or someone presenting at a normal pace. Flicking through quickly doesn't count. It's remembered for the day, so a reload doesn't make the room sit through another loop.</p>
+    <p><b>On and off stage.</b> After that it comes out for a visit, plays, and hops off again. When its time is up it finishes what it's doing first (a nap, a carrot, a greeting) and leaves at its next decision; the friend goes home and the insects fly off. While it's away the ground rests. Visits get longer and breaks shorter over the afternoon, until from 16:10 it stays.</p>
+    <p><b>The rabbit button</b> in the slideshow controls (or <kbd>R</kbd>) turns it off for anyone who'd rather not have it; on by default. Play and pause no longer affect it.</p>
+    <p>Everything follows <b>the event clock</b>. On Saturday 24 Oct it's the real time in Stockholm, so a pause, a reload or a second screen never puts it out of step. Before 14:00 (setup) it's at the start, after 16:40 it's full. On any other day (people browsing the site) the clock is play time counted from 14:00.</p>
   </section>
 
   <section>
     <h2>QA without waiting</h2>
     <div class="grid2">
-      <div class="card"><h3>Admin panel</h3><p>Unlock admin on the site (tap the logo 11 times; the question is a decoy, the word is the Helsinki one; or the Konami code). Dev tools appear beside the slideshow: the event clock, jump to any milestone, step ⏮ ⏭, run the clock at 1×, 10× or 60×, back to real time, spawn things.</p></div>
-      <div class="card"><h3><kbd>T</kbd> <kbd>[</kbd> <kbd>]</kbd> (admin)</h3><p>In the slideshow itself: T shows the clock, phase and next milestone; [ and ] step to the previous or next milestone.</p></div>
+      <div class="card"><h3>Admin panel</h3><p>Unlock admin on the site (tap the logo 11 times; the question is a decoy, the word is the Helsinki one; or the Konami code). Beside the slideshow: the event clock, jump to any milestone, step ⏮ ⏭, 1×/10×/60×, back to real time; the rabbit's state with <i>End visit now</i> / <i>Bring it out now</i> and <i>Pass guard</i> / <i>Reset guard</i>; spawn things.</p></div>
+      <div class="card"><h3><kbd>T</kbd> <kbd>[</kbd> <kbd>]</kbd> (admin)</h3><p>In the slideshow itself: T shows the clock, phase, next milestone and the rabbit (waiting, out or away, and for how long); [ and ] step between milestones.</p></div>
       <div class="card"><h3><code>?clock=15:40</code></h3><p>Open <code>slides.html?clock=15:40</code> to run a simulated clock from 15:40. The panel's Real time button (or Lock) drops it.</p></div>
-      <div class="card"><h3>Console</h3><p><code>slideRabbit.force('friend')</code>, <code>'friendLeave'</code>, <code>'fly'</code>, <code>'bee'</code>, <code>'flower'</code>, <code>'carrot'</code>, <code>'dig'</code>, <code>'sleep'</code>, <code>'sploot'</code>, <code>'binky'</code>, <code>'chase'</code>, <code>'stroll'</code>. Same on <code>siteRabbit</code>.</p></div>
+      <div class="card"><h3>Console</h3><p><code>slideRabbit.force('friend')</code>, <code>'friendLeave'</code>, <code>'fly'</code>, <code>'bee'</code>, <code>'flower'</code>, <code>'carrot'</code>, <code>'dig'</code>, <code>'sleep'</code>, <code>'sploot'</code>, <code>'binky'</code>, <code>'chase'</code>, <code>'stroll'</code>. <code>slideRabbit.show(true|false)</code>.</p></div>
     </div>
-    <p class="calm" style="margin-top:12px">Note that a new element appears gently: grass takes about 2.5 min to grow in, flowers take 12–18 s to bloom, the first friend visit comes 20–45 s after its phase starts.</p>
+    <p class="calm" style="margin-top:12px">A new element appears gently: grass takes about 2.5 min to grow in, flowers take 12–18 s to bloom, the friend often tags along early in a visit once it's unlocked.</p>
   </section>
 
   <section>
     <h2>Phase-in timeline</h2>
-    <p class="calm">Event clock. Gold = the rabbits and visitors, green = the ecosystem, dashed = ideas not built yet.</p>
+    <p class="calm">Event clock. Gold = the rabbits and visitors, green = the ecosystem, dashed = the quiet stretch and ideas not built yet. “Out / away” is how long a visit and a break last.</p>
     <ol class="rail">
       <li><time>14:00</time><div class="body"><h3>Just the rabbit <span class="tag built">built</span></h3>
-        <p>Hops in from a side on the first play. Rests, grooms, sniffs, stands up to look around, short hops toward open space (never more than 6 in a row), strolls, sploots, naps with z's. Digs up a carrot on the spot every 1–2 min and eats it. No butterflies, no binkies yet.</p></div></li>
+        <p>After the first clean loop it hops in from a side. Rests, grooms, sniffs, stands up to look around, turns to face the room now and then, short hops, strolls, sploots, naps with z's. <b>No carrot on its first visit</b>: digging one up is saved for a later one. No butterflies, no binkies yet. Out 60–90 s, away 120–150 s.</p></div></li>
       <li><time>14:10</time><div class="body"><h3>A butterfly <span class="tag built">built</span></h3>
-        <p>One round-winged butterfly at a time, roughly every couple of minutes, flitting around the rabbit. The rabbit watches, hops after it and binkies when it dips low. Binkies unlock.</p></div></li>
+        <p>One butterfly at a time, flitting around the rabbit. The rabbit watches it with its eyes, looks up when it's right overhead, chases it with its chin up and binkies when it dips low. Out 90–120 s, away 90–120 s.</p></div></li>
       <li><time>14:15</time><div class="body"><h3>A friend visits <span class="tag built">built</span></h3>
-        <p>A smaller cream rabbit with brown ears and a brown back patch hops in from the nearer side every 9–12 min and stays 1–1.7 min. The two touch noses, stay near each other, play follow-the-leader, groom each other or sploot side by side, then the friend hops off.</p></div></li>
+        <p>A smaller cream rabbit with brown ears and a brown back patch, only while the jade rabbit is out (it often tags along early in a visit). The two touch noses, play follow-the-leader, groom each other or sploot side by side.</p></div></li>
       <li><time>14:25</time><div class="body"><h3>More butterflies <span class="tag built">built</span></h3>
-        <p>Up to 2 at once, about twice as often. Last change before the quiet stretch.</p></div></li>
+        <p>Up to 2 at once, about twice as often. The rabbit is out most of the time now: out 120–150 s, away 60–80 s.</p></div></li>
       <li class="idea"><time>14:30</time><div class="body"><h3>Quiet stretch, until 15:30</h3>
-        <p>Opening, games and performances, Kahoot. Nothing new appears; the rabbits, butterflies and the friend carry on.</p></div></li>
-      <li><time>15:30</time><div class="body"><h3>Friends share <span class="tag built">built</span></h3>
-        <p>When one rabbit pulls up a carrot the other may hop over and nibble the other end; it goes 1.8× faster. Visits every 6–9 min, lasting 1.5–2.5 min.</p></div></li>
-      <li class="eco"><time>15:40</time><div class="body"><h3>Grass grows in <span class="tag built">built</span></h3>
-        <p>Low grass patches rise out of the floor a few blades at a time over about 2.5 minutes.</p></div></li>
-      <li class="eco"><time>15:50</time><div class="body"><h3>Carrots grow in the ground <span class="tag built">built</span></h3>
-        <p>Digging on the spot stops. One carrot at a time sprouts among the grass and ripens over 50 s; a rabbit that sees a ripe one (within 260 units) goes and digs it up.</p></div></li>
+        <p>Opening, games and performances, Kahoot. No milestones. The rabbit drops right back to a rare visit (out 60–90 s, away 8–10 min); while it's away, a butterfly or the odd bee drifts through now and then, so a slideshow left running has a little life without pulling eyes from the stage.</p></div></li>
+      <li class="eco"><time>15:30</time><div class="body"><h3>Grass grows in <span class="tag built">built</span></h3>
+        <p>Marks the new part of the afternoon with the feast. Low grass rises out of the floor over about 2.5 minutes, and the rabbit starts coming out more again: out 2–3 min, away 60–90 s.</p></div></li>
+      <li class="eco"><time>15:40</time><div class="body"><h3>Carrots grow in the ground <span class="tag built">built</span></h3>
+        <p>Digging on the spot stops. One carrot at a time sprouts among the grass and ripens over 50 s; a rabbit that sees a ripe one goes and digs it up. Out 3–4 min, away 40–60 s.</p></div></li>
+      <li><time>15:50</time><div class="body"><h3>Friends share <span class="tag built">built</span></h3>
+        <p>When one rabbit pulls up a carrot the other may nibble the other end; it goes 1.8× faster. Friend visits every 6–9 min, lasting 1.5–2.5 min. Out 4–5 min, away 30–45 s.</p></div></li>
       <li class="eco"><time>16:00</time><div class="body"><h3>First flowers <span class="tag built">built</span></h3>
         <p>Up to 2 flowers: sprout, bud, bloom about a minute, wilt, gone. Butterflies now look for blooms, land, sip and move on; rabbits sometimes smell a flower.</p></div></li>
       <li class="eco"><time>16:10</time><div class="body"><h3>More flowers <span class="tag built">built</span></h3>
-        <p>Up to 4 flowers and 2 carrots in the ground.</p></div></li>
+        <p>Up to 4 flowers and 2 carrots in the ground. <b>The rabbit stays out from here.</b></p></div></li>
       <li class="eco"><time>16:20</time><div class="body"><h3>A bee <span class="tag built">built</span></h3>
         <p>One bee: fast zig-zags, hovers over flowers instead of landing. A rabbit flattens its ears and hops away if it buzzes at its face.</p></div></li>
       <li class="eco"><time>16:40</time><div class="body"><h3>Full meadow <span class="tag built">built</span></h3>
@@ -115,48 +116,49 @@
     <h2>The afternoon</h2>
     <p>Saturday 24 Oct, 14:00–17:00 at Danderydsgården. Some programme items need the slides or the music paused; with the event clock that no longer holds the meadow back.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Clock</th><th>Programme</th><th>Slideshow</th></tr></thead>
+      <thead><tr><th>Clock</th><th>Programme</th><th>Slideshow</th><th>Rabbit</th></tr></thead>
       <tbody>
-        <tr><td class="num">14:00</td><td>Đón khách</td><td>Looping with music</td></tr>
-        <tr><td class="num">14:30</td><td>Khai mạc</td><td>Likely paused (speeches)</td></tr>
+        <tr><td class="num">14:00</td><td>Đón khách</td><td>Looping with music</td><td>After the first loop, out more and more often</td></tr>
+        <tr><td class="num">14:30</td><td>Khai mạc</td><td>Likely paused (speeches)</td><td rowspan="3">Rare visits, passers-by</td></tr>
         <tr><td class="num">14:45</td><td>Trò chơi & biểu diễn</td><td>Music off, slides may loop</td></tr>
         <tr><td class="num">15:15</td><td>Kahoot</td><td>Paused, projector used for the quiz</td></tr>
-        <tr><td class="num">15:30</td><td>Phá cỗ & rước đèn</td><td>Looping again</td></tr>
-        <tr><td class="num">16:15</td><td>Fika & vẽ mặt</td><td>Looping</td></tr>
-        <tr><td class="num">17:00</td><td>Giao lưu văn nghệ</td><td>Looping or paused for dancing</td></tr>
+        <tr><td class="num">15:30</td><td>Phá cỗ & rước đèn</td><td>Looping again</td><td>Grass, then out more and more</td></tr>
+        <tr><td class="num">16:15</td><td>Fika & vẽ mặt</td><td>Looping</td><td>Stays out, meadow fills in</td></tr>
+        <tr><td class="num">17:00</td><td>Giao lưu văn nghệ</td><td>Looping or paused for dancing</td><td>Full meadow</td></tr>
       </tbody>
     </table></div>
-    <p class="calm" style="margin-top:10px">The friend arrives around 14:15 while guests mingle; sharing starts when the feast does at 15:30, and the ecosystem fills in over fika, when people have seen the slides many times.</p>
   </section>
 
   <section>
     <h2>The phase table</h2>
-    <p>In <code>slides.js</code>, <code>PHASES</code>. Each row applies on top of the ones before it. <code>features</code> switches ecosystem parts on; <code>tune</code> sets how busy it is.</p>
+    <p>In <code>slides.js</code>, <code>PHASES</code> and <code>QUIET</code>. Each row applies on top of the ones before it. <code>features</code> switches ecosystem parts on, <code>tune</code> sets how busy it is, <code>stage</code> sets visit and break lengths (seconds).</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>At</th><th>Name</th><th>Features</th><th>Tune</th></tr></thead>
+      <thead><tr><th>At</th><th>Name</th><th>Features</th><th>Tune</th><th>Stage (out / away)</th></tr></thead>
       <tbody>
-        <tr><td class="num">14:00</td><td>Just the rabbit</td><td>none</td><td><code>flies 0, binky false</code> plus the full baseline, so stepping back undoes later rows</td></tr>
-        <tr><td class="num">14:10</td><td>A butterfly</td><td></td><td><code>flies 1, binky true</code> (flyChance 0.06)</td></tr>
-        <tr><td class="num">14:15</td><td>A friend visits</td><td></td><td><code>friend true</code> (every 540–720 s, stays 60–100 s)</td></tr>
-        <tr><td class="num">14:25</td><td>More butterflies</td><td></td><td><code>flies 2, flyChance 0.12</code></td></tr>
-        <tr><td class="num">15:30</td><td>Friends share</td><td></td><td><code>share true, friendEvery [360, 540], friendStay [90, 150]</code></td></tr>
-        <tr><td class="num">15:40</td><td>Grass grows in</td><td><code>grass</code></td><td></td></tr>
-        <tr><td class="num">15:50</td><td>Carrots grow in the ground</td><td><code>growCarrots</code></td><td>(carrots 1)</td></tr>
-        <tr><td class="num">16:00</td><td>First flowers</td><td><code>flowers</code></td><td>(flowers 2)</td></tr>
-        <tr><td class="num">16:10</td><td>More flowers</td><td></td><td><code>flowers 4, carrots 2</code></td></tr>
-        <tr><td class="num">16:20</td><td>A bee</td><td><code>bees</code></td><td>(bees 1)</td></tr>
-        <tr><td class="num">16:40</td><td>Full meadow</td><td></td><td><code>flowers 8, flies 3, bees 2, flyChance 0.18, friendEvery [240, 360]</code></td></tr>
+        <tr><td class="num">14:00</td><td>Just the rabbit</td><td>none</td><td><code>flies 0, binky false</code> plus the full baseline, so stepping back undoes later rows</td><td class="num">60–90 / 120–150</td></tr>
+        <tr><td class="num">14:10</td><td>A butterfly</td><td></td><td><code>flies 1, binky true</code></td><td class="num">90–120 / 90–120</td></tr>
+        <tr><td class="num">14:15</td><td>A friend visits</td><td></td><td><code>friend true</code></td><td></td></tr>
+        <tr><td class="num">14:25</td><td>More butterflies</td><td></td><td><code>flies 2, flyChance 0.12</code></td><td class="num">120–150 / 60–80</td></tr>
+        <tr><td class="num">14:30–15:30</td><td>Quiet stretch</td><td></td><td><code>ambient true</code> (passers-by while away)</td><td class="num">60–90 / 480–600</td></tr>
+        <tr><td class="num">15:30</td><td>Grass grows in</td><td><code>grass</code></td><td></td><td class="num">120–180 / 60–90</td></tr>
+        <tr><td class="num">15:40</td><td>Carrots grow in the ground</td><td><code>growCarrots</code></td><td></td><td class="num">180–240 / 40–60</td></tr>
+        <tr><td class="num">15:50</td><td>Friends share</td><td></td><td><code>share true, friendEvery [360, 540], friendStay [90, 150]</code></td><td class="num">240–300 / 30–45</td></tr>
+        <tr><td class="num">16:00</td><td>First flowers</td><td><code>flowers</code></td><td></td><td></td></tr>
+        <tr><td class="num">16:10</td><td>More flowers</td><td></td><td><code>flowers 4, carrots 2</code></td><td>always out</td></tr>
+        <tr><td class="num">16:20</td><td>A bee</td><td><code>bees</code></td><td></td><td></td></tr>
+        <tr><td class="num">16:40</td><td>Full meadow</td><td></td><td><code>flowers 8, flies 3, bees 2, flyChance 0.18, friendEvery [240, 360]</code></td><td></td></tr>
       </tbody>
     </table></div>
-    <p class="calm" style="margin-top:10px"><code>flyChance</code> is the odds a butterfly turns up at each check (every 4–9 s) while there's room for one: 0.06 ≈ one every 1.5–2 min, 0.12 ≈ every minute. With flowers blooming they come for the flowers at 0.45 or more.</p>
+    <p class="calm" style="margin-top:10px">When the plan changes (a milestone, the quiet stretch starting or ending), a visit or break that's longer than the new plan allows is cut to fit, so the rabbit doesn't sit out a 10-minute quiet-stretch break after 15:30.</p>
   </section>
 
   <section>
     <h2>Rules that keep it calm</h2>
     <ul>
+      <li>Nothing until every slide has been seen for 5 s; then short visits first.</li>
       <li>Everything lives in the bottom strip of the stage; insects stay within about 160 rabbit-units of the floor.</li>
       <li>Caps scale with stage width, so a phone never gets crowded.</li>
-      <li>Pause freezes the ground exactly and insects fly off for a clean slide. On the day the event clock keeps running; on other days the play-time clock stops.</li>
+      <li>The rabbit button turns it all off; play and pause only drive the slides and the music.</li>
       <li>The site's membership-box rabbit stays at the base level (rabbit, carrots, the odd butterfly), with no phases and no friend.</li>
     </ul>
   </section>
@@ -167,7 +169,7 @@
     <div class="table-wrap"><table>
       <thead><tr><th>Element</th><th>Behaviour and numbers</th></tr></thead>
       <tbody>
-        <tr><td>Rabbit</td><td>Rest fidgets (blink, glance, ears, groom, sniff, stand up, loaf); hops with crouch, arc and landing squash; max 6 hops then rest; strolls remember their goal; sploot every 20–40 s at most; nap 8–15 s every 1.5–2.5 min with a stretch; binky every 15–35 s at most. The roll-over is gone.</td></tr>
+        <tr><td>Rabbit</td><td>Rest fidgets (blink, glance, ears, groom, sniff, stand up, loaf); hops with crouch, arc and landing squash; max 6 hops then rest; strolls remember their goal; sploot every 20–40 s at most; nap 8–15 s every 1.5–2.5 min with a stretch; binky every 15–35 s at most. Looks: eyes follow what it watches (rolled well up for things overhead); a butterfly right overhead gets a chin-up look; when chasing, chin and eyes stay on the butterfly; now and then it turns to face the room (front view, both ears and eyes, a little smile) for 2–3 s. The roll-over is gone.</td></tr>
         <tr><td>Friend rabbit</td><td>86% size, cream fur, brown ears and back patch. Arrives from the nearer side, greets with a 2.4 s nose touch, then plays every 14–24 s at most: follow-the-leader (½ of the time), grooming, side-by-side sploot. Shares carrots when <code>share</code> is on (65% of the time, within 320 units).</td></tr>
         <tr><td>Carrots on the spot</td><td>Dig 1.4–2 s, pull 0.9 s, eat 5.5 s (1.8× faster when shared), 10–20 s between. On the site, grabbing mid-meal leaves the carrot on the floor (up to 5).</td></tr>
         <tr><td>Butterflies</td><td>Round wings (pointed and swallowtail still drawn in code), six colours. Without flowers they flit around the rabbit; with flowers they seek blooms, sip 3–7 s, visit 2–4, leave after 30–55 s. A rabbit chases one at a time for 8–14 s, switching every 4–7 s.</td></tr>

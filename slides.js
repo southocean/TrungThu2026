@@ -207,6 +207,7 @@
     });
     cur = i;
     elapsed = 0;
+    shownFor = 0;
     $('count').textContent = `${i + 1} / ${N}`;
     if (announce) $('live').textContent = `Slide ${i + 1} / ${N}: ${slides[i].querySelector('h1, h2').textContent}`;
     if (!embed) history.replaceState(null, '', `#${i + 1}`);
@@ -247,12 +248,11 @@
   const togglePlay = () => setPlay(!playing);
 
   // The site's jade rabbit keeps the slideshow company along the bottom of the stage, carrying on
-  // from slide to slide. It hops in the first time the show plays, freezes on pause and resumes
-  // with play. Just to watch.
+  // from slide to slide. It comes and goes on its own schedule (the stage plan below), not with
+  // play and pause; the rabbit button turns it off. Just to watch.
   window.slideRabbit = window.mountRabbit?.(stage, {
     scale: () => (document.body.classList.contains('portrait') ? 2.4 : 2),
-    active: () => document.body.classList.contains('playing'),
-    watch: document.body,
+    manual: true,
     interactive: false,
     enter: true,
     tune: { flies: 0, binky: false },
@@ -264,25 +264,31 @@
   // the stage or the projector is taken for Kahoot. On the day (24/10, Stockholm time) the
   // clock is the real time, so pauses, reloads and other screens all agree. Any other day it
   // is play time counted from 14:00 (only time spent playing counts, kept per day).
+  // `stage` is how much of the time the rabbit is out: visits of `on` seconds with breaks of `off`
+  // seconds. It ramps up before the quiet stretch, drops right back in it (a rare visit, with
+  // butterflies and the odd bee drifting through meanwhile), and from 15:30, when the grass marks
+  // the new part of the afternoon, ramps up again until it stays.
   // Specs and reasoning: docs/meadow-plan.html. Each row applies on top of the ones before it.
   const EVENT_DAY = '2026-10-24', TZ = 'Europe/Stockholm', START = 14 * 60;
   const PHASES = [
     { at: '14:00', name: 'Just the rabbit', features: {}, tune: { // full baseline, so stepping back undoes later rows
       flies: 0, flyChance: 0.06, binky: false, flowers: 2, bees: 1, carrots: 1,
-      friend: false, share: false, friendEvery: [540, 720], friendStay: [60, 100] } },
-    { at: '14:10', name: 'A butterfly', tune: { flies: 1, binky: true } },
+      friend: false, share: false, friendEvery: [540, 720], friendStay: [60, 100] },
+      stage: { on: [60, 90], off: [120, 150] } },
+    { at: '14:10', name: 'A butterfly', tune: { flies: 1, binky: true }, stage: { on: [90, 120], off: [90, 120] } },
     { at: '14:15', name: 'A friend visits', tune: { friend: true } },
-    { at: '14:25', name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 } },
-    // 14:30–15:30 quiet: opening, games and performances, Kahoot
-    { at: '15:30', name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] } },
-    { at: '15:40', name: 'Grass grows in', features: { grass: true } },
-    { at: '15:50', name: 'Carrots grow in the ground', features: { growCarrots: true } },
+    { at: '14:25', name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 }, stage: { on: [120, 150], off: [60, 80] } },
+    // 14:30–15:30 quiet stretch: see QUIET
+    { at: '15:30', name: 'Grass grows in', features: { grass: true }, stage: { on: [120, 180], off: [60, 90] } },
+    { at: '15:40', name: 'Carrots grow in the ground', features: { growCarrots: true }, stage: { on: [180, 240], off: [40, 60] } },
+    { at: '15:50', name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] }, stage: { on: [240, 300], off: [30, 45] } },
     { at: '16:00', name: 'First flowers', features: { flowers: true } },
-    { at: '16:10', name: 'More flowers', tune: { flowers: 4, carrots: 2 } },
+    { at: '16:10', name: 'More flowers', tune: { flowers: 4, carrots: 2 }, stage: 'always' },
     { at: '16:20', name: 'A bee', features: { bees: true } },
     { at: '16:40', name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
   ];
-  const QUIET = [{ from: '14:30', to: '15:30', why: 'speeches, games, Kahoot' }];
+  // No milestones here; the rabbit drops back to a rare visit and insects pass by while it's away.
+  const QUIET = [{ from: '14:30', to: '15:30', why: 'speeches, games, Kahoot', stage: { on: [60, 90], off: [480, 600] } }];
   const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
   const fmt = min => { const m = Math.floor(((min % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
   PHASES.forEach(p => { p.min = toMin(p.at); });
@@ -315,14 +321,16 @@
     return { min: START + playMs / 60000, source: 'play', speed: 1 };
   }
 
-  let phaseIdx = -1;
+  let phaseKey = '';
   const phaseAt = min => PHASES.reduce((k, p, i) => (min >= p.min ? i : k), 0);
+  const quietAt = min => QUIET.find(q => min >= q.fromMin && min < q.toMin) || null;
   function applyPhase() {
-    const idx = phaseAt(clock().min);
-    if (idx === phaseIdx || !window.slideRabbit) return;
-    phaseIdx = idx;
+    const min = clock().min, idx = phaseAt(min), quiet = quietAt(min), key = `${idx}${quiet ? 'q' : ''}`;
+    if (key === phaseKey || !window.slideRabbit) return;
+    phaseKey = key;
     const features = { grass: false, flowers: false, growCarrots: false, bees: false }, tune = {};
     for (const p of PHASES.slice(0, idx + 1)) { Object.assign(features, p.features); Object.assign(tune, p.tune); }
+    tune.ambient = !!quiet;
     slideRabbit.configure({ features, tune });
   }
   let lastTick = performance.now(), saveIn = 0;
@@ -335,16 +343,18 @@
     if (sim) { sim.min += (dt / 60000) * sim.speed; saveSim(); }
     lastTick = now;
     applyPhase();
+    stageTick(dt);
     if (!hud.hidden) showHud();
   }, 1000);
 
   // What the dev tools read and drive (the home page's admin panel, and T [ ] here).
   const meadow = {
-    phases: PHASES.map(({ at, min, name }) => ({ at, min, name })),
-    quiet: QUIET.map(q => ({ ...q })),
+    phases: PHASES.map(({ at, min, name, stage }) => ({ at, min, name,
+      stage: !stage ? null : stage === 'always' ? 'always out' : `out ${stage.on.join('–')} s, away ${stage.off.join('–')} s` })),
+    quiet: QUIET.map(q => ({ ...q, stage: `out ${q.stage.on.join('–')} s, away ${q.stage.off.join('–')} s, passers-by` })),
     fmt,
     state() {
-      const c = clock(), idx = phaseAt(c.min), q = QUIET.find(x => c.min >= x.fromMin && c.min < x.toMin);
+      const c = clock(), idx = phaseAt(c.min), q = quietAt(c.min);
       const item = agendaMins.reduce((k, a) => (c.min >= a.min ? a : k), null);
       return { ...c, time: fmt(c.min), idx, phase: PHASES[idx].name, next: PHASES[idx + 1] || null, quiet: q || null, programme: item?.title || 'Before the start' };
     },
@@ -357,7 +367,65 @@
     setSpeed(speed) { sim = { min: clock().min, speed }; saveSim(); },
     live() { sim = null; saveSim(); applyPhase(); },
     force: what => window.slideRabbit?.force(what),
+    rabbit() {
+      const plan = planNow();
+      return { on: rabbitOn, seen: seen.size, of: N, out, nextIn: turnAt ? Math.max(0, (turnAt - performance.now()) / 1000) : null,
+        plan: plan === 'always' ? 'always out' : `out ${plan.on[0]}–${plan.on[1]} s, away ${plan.off[0]}–${plan.off[1]} s` };
+    },
+    rabbitNow() { if (turnAt) turnAt = 1; stageTick(0); }, // end the current visit or break now
+    guard(pass) { seen = new Set(pass ? slides.map((_, i) => i) : []); saveSeen(); stageTick(0); },
   };
+
+  // ── The rabbit on stage ──
+  // Guard: it doesn't come out until every slide has been on screen for 5 s in one go, so the
+  // first loop (autoplay or someone presenting) is clean, and flicking through doesn't count.
+  // Kept per day, so a reload on the day doesn't make the room sit through another loop.
+  // Then it follows the stage plan: visits and breaks, longer visits as the afternoon goes on,
+  // rare in the quiet stretch, always out from 16:10. The rabbit button (or R) turns it off.
+  const GUARD_MS = 5000;
+  const seenKey = `tt-seen-${wallClock().day}`;
+  let seen = new Set();
+  try { seen = new Set(JSON.parse(localStorage.getItem(seenKey)) || []); } catch {}
+  const saveSeen = () => { try { localStorage.setItem(seenKey, JSON.stringify([...seen])); } catch {} };
+  let shownFor = 0; // how long the current slide has been on screen in one go
+  let rabbitOn = true;
+  try { rabbitOn = localStorage.getItem('tt-rabbit') !== 'off'; } catch {}
+  let out = false, turnAt = 0, lastPlan = null; // turnAt: when the current visit or break ends (0: not timed yet)
+  const secs = ([a, b]) => (a + Math.random() * (b - a)) * 1000;
+  function planNow() {
+    const c = clock();
+    const q = quietAt(c.min);
+    if (q) return q.stage;
+    return PHASES.slice(0, phaseAt(c.min) + 1).reduce((st, p) => p.stage || st, null);
+  }
+  function stageTick(dt) {
+    if (cur >= 0 && document.visibilityState === 'visible') {
+      shownFor += dt;
+      if (shownFor >= GUARD_MS && !seen.has(cur)) { seen.add(cur); saveSeen(); }
+    } else shownFor = 0;
+    const now = performance.now(), plan = planNow();
+    if (plan !== lastPlan) { // the plan changed (a milestone, the quiet stretch): a long break or visit is cut to fit it
+      if (turnAt && plan !== 'always') turnAt = Math.min(turnAt, now + secs(out ? plan.on : plan.off));
+      lastPlan = plan;
+    }
+    let want;
+    if (!rabbitOn || seen.size < N) { want = false; turnAt = 0; }
+    else if (plan === 'always') { want = true; turnAt = 0; }
+    else if (!turnAt) { want = true; turnAt = now + secs(plan.on); } // first time out, or coming off 'always'
+    else if (now >= turnAt) { want = !out; turnAt = now + secs(want ? plan.on : plan.off); }
+    else want = out;
+    if (want !== out) { out = want; window.slideRabbit?.show(want); }
+  }
+  function setRabbit(on) {
+    rabbitOn = on;
+    try { localStorage.setItem('tt-rabbit', on ? 'on' : 'off'); } catch {}
+    $('rabbit').setAttribute('aria-pressed', String(on));
+    $('rabbit').setAttribute('aria-label', on ? 'Tắt thỏ' : 'Bật thỏ');
+    $('rabbit').title = on ? 'Thỏ: bật (R)' : 'Thỏ: tắt (R)';
+    stageTick(0);
+  }
+  $('rabbit').onclick = () => setRabbit(!rabbitOn);
+  setRabbit(rabbitOn);
 
   // Admin only: T shows the event clock and phase, [ and ] step between milestones.
   const hud = document.createElement('p');
@@ -365,7 +433,10 @@
   document.body.append(hud);
   function showHud() {
     const s = meadow.state(), src = { live: 'live', play: 'play time', sim: `simulated ×${s.speed}` }[s.source];
-    hud.textContent = `${s.time} (${src}) · ${s.phase}` + (s.next ? ` · next ${s.next.at}: ${s.next.name}` : '') + (s.quiet ? ' · quiet' : '');
+    const rb = meadow.rabbit();
+    const rab = !rb.on ? 'rabbit off' : rb.seen < rb.of ? `rabbit waits: ${rb.seen}/${rb.of} slides seen` :
+      `rabbit ${rb.out ? 'out' : 'away'}` + (rb.nextIn != null ? ` ${Math.round(rb.nextIn)} s more` : '');
+    hud.textContent = `${s.time} (${src}) · ${s.phase}` + (s.next ? ` · next ${s.next.at}: ${s.next.name}` : '') + (s.quiet ? ' · quiet' : '') + ` · ${rab}`;
   }
   applyPhase();
 
@@ -440,6 +511,7 @@
     else if (k === 'f' || k === 'F') toggleFs();
     else if (k === 'p' || k === 'P') togglePlay();
     else if (k === 'm' || k === 'M') music.toggle();
+    else if (k === 'r' || k === 'R') setRabbit(!rabbitOn);
     else if (k === 'l' || k === 'L') I18N.set(I18N.next());
     else if ((k === 't' || k === 'T') && isAdmin()) { hud.hidden = !hud.hidden; showHud(); }
     else if (k === ']' && isAdmin()) { meadow.step(1); hud.hidden = false; showHud(); }

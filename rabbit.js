@@ -17,17 +17,19 @@
 // the ground and ripen, butterflies that visit flowers, and bees. With them off the rabbit
 // digs up carrots wherever it is and plays with the odd butterfly.
 //
-// When the slideshow pauses, everything on the ground freezes and the insects fly away.
+// In the slideshow the rabbit comes and goes on a schedule (see slides.js); while it's away
+// the friend goes home, the insects fly off and the ground rests.
 //
-// mountRabbit(box, { scale(W), active(), watch, interactive, enter, features, tune }):
+// mountRabbit(box, { scale(W), active(), watch, manual, interactive, enter, features, tune }):
 //   scale    rabbit size for a box this wide (default: 1, or 1.25 on wide boxes)
 //   active   when given, the meadow only runs while this returns true (re-checked when the
 //            class of opt.watch, default the box, changes); otherwise while on screen
+//   manual   true: out of sight until show(true); show(false) sends it off stage again
 //   interactive  false for rabbits you can only watch
 //   enter    true: stay out of sight until the first start, then hop in from a side
 //   features { grass, flowers, growCarrots, bees }: ecosystem parts to switch on (all off)
 //   tune     how busy it gets; see `tune` below
-// Returns a handle with configure({ features, tune }) and console helpers.
+// Returns a handle with configure({ features, tune }), show(on) and console helpers.
 window.mountRabbit = (box, opt = {}) => {
   if (!box) return;
   const interactive = opt.interactive !== false;
@@ -37,9 +39,10 @@ window.mountRabbit = (box, opt = {}) => {
   //   binky: allowed · flowers / bees / carrots: most at once (also capped by the box's width)
   //   friend: a friend rabbit visits · friendEvery: seconds between visits · friendStay: visit length
   //   share: the two rabbits may share a carrot
+  //   ambient: with the rabbit away, now and then a butterfly or a bee drifts through
   const tune = {
     flies: 1, flyChance: 0.1, binky: true, flowers: 8, bees: 2, carrots: 3,
-    friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ...opt.tune,
+    friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ambient: false, ...opt.tune,
   };
   let grassGrow = F.grass ? 1 : 0; // grass rises out of the soil over a couple of minutes when switched on
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -189,7 +192,7 @@ window.mountRabbit = (box, opt = {}) => {
   }
   function wander(b, rise = 0) {
     b.state = 'wander'; b.t = 0; b.wanderFor = rand(1.5, 3.5);
-    const around = flowers.length ? b.x : main.r.x; // with no flowers about, it flits around the rabbit
+    const around = flowers.length ? b.x : main.gone ? rand(W * 0.2, W * 0.8) : main.r.x; // with no flowers about, it flits around the rabbit
     b.wx = clamp(around + rand(-220, 220) * S, 30 * S, W - 30 * S); b.wy = soil() - rand(60 + rise, 160 + rise) * S;
   }
   function stepBugs(dt, fleeing) {
@@ -392,7 +395,7 @@ window.mountRabbit = (box, opt = {}) => {
       air: 0, squash: 0, rear: 0, headDown: 0, paw: 0, dig: 0, chew: 0, shake: 0, flat: 0, stretch: 0, eyesShut: false,
       earA: -0.45, earB: -0.2, earAT: -0.45, earBT: -0.2,
       lookX: 0, lookY: 0, lookTX: 0, lookTY: 0, blink: 0, nose: 0, noseRate: 8,
-      act: null, actT: 0, blinkIn: 2, earIn: 1, glanceIn: 1.5, zIn: 0, jumpIn: 0,
+      act: null, actT: 0, blinkIn: 2, earIn: 1, glanceIn: 1.5, zIn: 0, jumpIn: 0, toCam: 0,
       focus: null, focusT: 0, chaseLeft: 0,
       greeted: false, visit: null, stayLeft: 0, shareWith: null, // the friend's visit
       vx: 0, vy: 0, swing: 0, kick: 0, // held / falling
@@ -516,6 +519,7 @@ window.mountRabbit = (box, opt = {}) => {
       const p = partner();
       r.shareWith = null; // whatever sharing it was heading for is over by now
       if (r.visit === 'leave') return;
+      if (!wantOut) { exit(); return; } // time to go: it has finished what it was doing, so off it hops
       if (r.visit === 'stay' && r.greeted && r.stayLeft <= 0) { exit(); return; }
       // a visitor: first say hello, then stay close and sometimes play
       if (p && p.r.visit !== 'leave') {
@@ -536,12 +540,12 @@ window.mountRabbit = (box, opt = {}) => {
         goTo(drop.x - dir * 28 * S, () => (lying.includes(drop) ? eatLying(dir, drop) : rest(1, 2)));
         return;
       }
-      if (!F.growCarrots && !carrot && cool.carrot <= 0 && chance(0.22)) {
+      if (!F.growCarrots && !carrot && cool.carrot <= 0 && !firstVisit() && chance(0.22)) {
         carrot = { x: mouthX(), len: 1, state: 'buried', out: 0 };
         setMode('dig', rand(1.4, 2));
         return;
       }
-      const ripe = F.growCarrots && nearest(planted, VISION * S, c => c.ripe >= 1);
+      const ripe = F.growCarrots && !firstVisit() && nearest(planted, VISION * S, c => c.ripe >= 1);
       if (ripe && chance(0.7)) {
         const dir = Math.sign(ripe.x - r.x) || r.face;
         goTo(ripe.x - dir * 28 * S, () => {
@@ -737,6 +741,7 @@ window.mountRabbit = (box, opt = {}) => {
           const f = r.focus, dx = f.x - r.x, high = groundY(r.d) - f.y;
           if (Math.abs(dx) > 12 * S) r.face = Math.sign(dx);
           rear = clamp(high / (130 * S), 0.2, 1); earsT = [0.05, 0.2]; noseRate = 16;
+          headDown = -clamp(high / (160 * S), 0, 0.5); // chin up toward it (the eyes follow it in fidgets)
           r.jumpIn -= dt;
           if (r.t < 0.5) break; // just looked up at it
           if (Math.abs(dx) > 70 * S) {
@@ -798,8 +803,8 @@ window.mountRabbit = (box, opt = {}) => {
             if (r.act) { r.act = null; r.actT = rand(0.8, 2); }
             else {
               const a = Math.random();
-              r.act = a < 0.3 ? 'groom' : a < 0.55 ? 'sniff' : a < 0.75 ? 'rear' : a < 0.9 ? 'turn' : 'loaf';
-              r.actT = { groom: rand(1.4, 2.4), sniff: rand(0.8, 1.6), rear: rand(1.2, 2), turn: 0.01, loaf: rand(1.5, 3) }[r.act];
+              r.act = a < 0.26 ? 'groom' : a < 0.48 ? 'sniff' : a < 0.66 ? 'rear' : a < 0.8 ? 'audience' : a < 0.9 ? 'turn' : 'loaf';
+              r.actT = { groom: rand(1.4, 2.4), sniff: rand(0.8, 1.6), rear: rand(1.2, 2), audience: rand(1.8, 3.2), turn: 0.01, loaf: rand(1.5, 3) }[r.act];
               if (r.act === 'turn') r.face *= -1;
             }
           }
@@ -807,10 +812,17 @@ window.mountRabbit = (box, opt = {}) => {
           if (r.act === 'sniff') { headDown = 0.75; noseRate = 24; }
           if (r.act === 'rear') { rear = 1; earsT = [0.05, 0.15]; noseRate = 16; }
           if (r.act === 'loaf') { earsT = [-1, -0.85]; }
+          if (r.act === 'audience') { earsT = [0, 0.12]; r.lookTX = 0; r.lookTY = 0; } // turns its face to the room
+          // a butterfly right overhead: chin up, eyes up at it
+          const hp = headPos(), above = r.act !== 'groom' && bugs.find(b => b.type === 'fly' && Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
+          if (above) { r.act = r.act === 'audience' ? null : r.act; headDown = -0.6; rear = Math.max(rear, 0.25); earsT = [0.05, 0.15]; r.lookTX = clamp((above.x - r.x) * r.face / 50, -1, 1); r.lookTY = -1; }
           if (r.t > r.until && (!r.act || r.act === 'loaf')) decide();
         }
       }
       r.earAT = earsT[0]; r.earBT = earsT[1];
+      const wasFront = r.toCam > 0.5;
+      r.toCam = ease(r.toCam, r.mode === 'rest' && r.act === 'audience' ? 1 : 0, 6, dt);
+      if (wasFront !== r.toCam > 0.5) r.squash = Math.max(r.squash, 0.18); // the turn reads as a little bounce
       r.headDown = ease(r.headDown, headDown, 6, dt);
       r.rear = ease(r.rear, rear, 5, dt);
       r.paw = ease(r.paw, paw, 8, dt);
@@ -837,18 +849,25 @@ window.mountRabbit = (box, opt = {}) => {
     }
     const ear = (base, a) => ['e', base[0] + Math.sin(a) * 12, base[1] - Math.cos(a) * 12, 4.6, 13.5, a];
     function innerEar(base, a) { g.beginPath(); g.ellipse(base[0] + Math.sin(a) * 12.5, base[1] - Math.cos(a) * 12.5, 2.1, 9.5, a, 0, TAU); g.fill(); }
+    // toCam 0 = profile, 1 = face turned to the room: both eyes show and the nose comes to the middle
     function face(hx, hy, wide) {
-      const ex = hx + 4, ey = hy - 2;
-      if (r.blink > 0.3 || r.eyesShut) {
-        g.strokeStyle = '#1b1b2f'; g.lineWidth = 1.6; g.lineCap = 'round';
-        g.beginPath(); g.moveTo(ex - 2.2, ey); g.quadraticCurveTo(ex, ey + 1.4, ex + 2.2, ey); g.stroke();
-      } else {
-        const px = ex + r.lookX * 0.8, py = ey + r.lookY * 0.7;
-        g.fillStyle = '#1b1b2f'; g.beginPath(); g.arc(px, py, wide ? 2.7 : 2.3, 0, TAU); g.fill();
-        g.fillStyle = '#fff'; g.beginPath(); g.arc(px + 0.8, py - 0.9, 0.8, 0, TAU); g.fill();
-      }
-      g.fillStyle = 'rgba(255, 140, 170, .5)'; g.beginPath(); g.ellipse(hx + 4, hy + 4.5, 3.2, 2, 0, 0, TAU); g.fill();
-      g.fillStyle = '#ff7aa2'; g.beginPath(); g.arc(hx + 10, hy + 1 + Math.sin(r.nose) * 0.6, 1.6, 0, TAU); g.fill();
+      const t = r.toCam, ey = hy - 2;
+      const eye = (ex, alpha) => {
+        g.globalAlpha = alpha;
+        if (r.blink > 0.3 || r.eyesShut) {
+          g.strokeStyle = '#1b1b2f'; g.lineWidth = 1.6; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(ex - 2.2, ey); g.quadraticCurveTo(ex, ey + 1.4, ex + 2.2, ey); g.stroke();
+        } else {
+          const px = ex + r.lookX * 1.4 * (1 - t), py = ey + r.lookY * (r.lookY < 0 ? 2.3 : 1.5) * (1 - t); // eyes roll well up at things overhead
+          g.fillStyle = '#1b1b2f'; g.beginPath(); g.arc(px, py, wide || t > 0.5 ? 2.7 : 2.3, 0, TAU); g.fill();
+          g.fillStyle = '#fff'; g.beginPath(); g.arc(px + 0.8, py - 0.9, 0.8, 0, TAU); g.fill();
+        }
+        g.fillStyle = 'rgba(255, 140, 170, .5)'; g.beginPath(); g.ellipse(ex, hy + 4.5 + t * 0.5, 3.2 - t * 0.6, 2, 0, 0, TAU); g.fill();
+        g.globalAlpha = 1;
+      };
+      eye(hx + 4 - 3 * t, 1);
+      if (t > 0.02) eye(hx + 4 + 4.5 * t, t);
+      g.fillStyle = '#ff7aa2'; g.beginPath(); g.arc(hx + 10 - 5.25 * t, hy + 1 + 2 * t + Math.sin(r.nose) * 0.6, 1.6, 0, TAU); g.fill();
     }
     function drawGround() {
       const air = r.air, rear = r.rear, hd = r.headDown, f = r.flat, st = r.stretch;
@@ -882,6 +901,38 @@ window.mountRabbit = (box, opt = {}) => {
       g.fillStyle = look.inner; innerEar(baseNear, r.earB + ang);
       face(hx, hy, false);
       return [hx + 10, hy + 2]; // mouth
+    }
+    // facing the room (the 'audience' look): sitting up, both ears, both eyes, a little smile
+    function drawFront() {
+      const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; // ear twitches carry over from the profile
+      const breathe = Math.sin(r.t * 2.4) * 0.4;
+      silhouette([
+        ['e', -8, -1.5, 6, 3.2],
+        ['e', 8, -1.5, 6, 3.2],
+        ['e', 0, -14 + breathe * 0.3, 16, 13.5 + breathe],
+        ['e', -5, -5, 3.6, 3],
+        ['e', 5, -5, 3.6, 3],
+        ['e', -4.5 + Math.sin(-0.16 + tw) * 12, -40 - Math.cos(-0.16 + tw) * 12, 4.6, 13.5, -0.16 + tw],
+        ['e', 4.5 + Math.sin(0.16 - tw2) * 12, -40 - Math.cos(0.16 - tw2) * 12, 4.6, 13.5, 0.16 - tw2],
+        ['c', 0, -31, 12],
+      ], [5, 6]);
+      g.fillStyle = look.shade; g.beginPath(); g.ellipse(0, -8, 11, 5, 0, 0, TAU); g.fill();
+      g.fillStyle = look.inner;
+      for (const [x, a] of [[-4.5, -0.16 + tw], [4.5, 0.16 - tw2]]) { g.beginPath(); g.ellipse(x + Math.sin(a) * 12.5, -40 - Math.cos(a) * 12.5, 2.1, 9.5, a, 0, TAU); g.fill(); }
+      for (const side of [-1, 1]) { // eyes, straight at the room
+        const ex = side * 4.6, ey = -33;
+        if (r.blink > 0.3 || r.eyesShut) {
+          g.strokeStyle = '#1b1b2f'; g.lineWidth = 1.6; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(ex - 2.2, ey); g.quadraticCurveTo(ex, ey + 1.4, ex + 2.2, ey); g.stroke();
+        } else {
+          g.fillStyle = '#1b1b2f'; g.beginPath(); g.arc(ex, ey, 2.6, 0, TAU); g.fill();
+          g.fillStyle = '#fff'; g.beginPath(); g.arc(ex + 0.8, ey - 0.9, 0.85, 0, TAU); g.fill();
+        }
+        g.fillStyle = 'rgba(255, 140, 170, .5)'; g.beginPath(); g.ellipse(side * 7.6, -27.5, 2.8, 1.8, 0, 0, TAU); g.fill();
+      }
+      g.fillStyle = '#ff7aa2'; g.beginPath(); g.ellipse(0, -29.5 + Math.sin(r.nose) * 0.3, 1.5, 1.1, 0, 0, TAU); g.fill();
+      g.strokeStyle = '#1b1b2f'; g.lineWidth = 0.9; g.lineCap = 'round'; // a small 'w' smile
+      g.beginPath(); g.moveTo(-2.2, -27.4); g.quadraticCurveTo(-1.1, -26.2, 0, -27.6); g.quadraticCurveTo(1.1, -26.2, 2.2, -27.4); g.stroke();
     }
     // held by the scruff: the pinch is at (0, 0), the body, paws and hind legs hanging down
     function drawHeld() {
@@ -925,6 +976,7 @@ window.mountRabbit = (box, opt = {}) => {
         if (r.tilt) g.rotate(r.tilt);
         if (r.twist) { g.translate(0, -16); g.rotate(r.twist); g.translate(0, 16); }
         if (r.shake) g.rotate(Math.sin(r.shake * 40) * 0.08 * r.shake);
+        if (r.toCam > 0.5) { drawFront(); g.restore(); return; }
         const mouth = drawGround();
         if (carrot?.state === 'mouth') drawCarrot(mouth[0] + 30 * carrot.len + 2, mouth[1] + 1, Math.PI + 0.12, carrot.len, 1);
       }
@@ -1001,21 +1053,25 @@ window.mountRabbit = (box, opt = {}) => {
     // insects come for the flowers (a lone butterfly sometimes passes even without any)
     const blooms = flowers.filter(blooming).length;
     const flies = bugs.filter(b => b.type === 'fly').length, bees = bugs.length - flies;
-    if (worldCool.bug <= 0) {
+    // going away: the insects fly off (the rabbits go at their next decision, see decide())
+    if (!wantOut && !tune.ambient) for (const b of bugs) b.state = 'leave';
+    if (main.gone && tune.ambient) { // nobody home in the quiet stretch: now and then a butterfly or a bee drifts through
+      if (worldCool.bug <= 0) { if (!bugs.length && chance(0.3)) spawnBug(chance(0.3) ? 'bee' : 'fly'); worldCool.bug = rand(15, 30); }
+    } else if (wantOut && worldCool.bug <= 0 && !main.gone) {
       if (flies < Math.min(tune.flies, 1 + Math.floor(blooms / 2)) && Math.random() < (blooms ? Math.max(0.45, tune.flyChance) : tune.flyChance)) spawnBug('fly');
       else if (F.bees && blooms && bees < tune.bees && chance(0.3)) spawnBug('bee');
       worldCool.bug = rand(4, 9);
     }
     stepBugs(dt, false);
     // the friend comes over now and then, and goes home again
-    if (tune.friend && !friend && worldCool.friend <= 0 && !['held', 'fall'].includes(main.r.mode)) friendArrives();
+    if (tune.friend && wantOut && !main.gone && !main.r.entering && !friend && worldCool.friend <= 0 && !['held', 'fall'].includes(main.r.mode)) friendArrives();
     if (friend?.gone) { friend = null; main.r.greeted = false; worldCool.friend = rand(...tune.friendEvery); }
     for (const z of zs) { z.t += dt; z.y -= 14 * S * dt; z.x += Math.sin(z.t * 2 + z.p) * 6 * S * dt; }
     while (zs.length && zs[0].t > 2.4) zs.shift();
   }
   function step(dt) {
     stepWorld(dt);
-    main.step(dt);
+    if (!main.gone) main.step(dt);
     friend?.step(dt);
   }
 
@@ -1026,7 +1082,7 @@ window.mountRabbit = (box, opt = {}) => {
     for (const f of flowers) drawFlower(f);
     for (const c of planted) drawPlanted(c);
     for (const c of lying) drawCarrot(c.x, groundY(0.6) - 4 * S, c.tilt, c.len, S);
-    for (const b of [main, friend].filter(Boolean).sort((a, b) => a.r.d - b.r.d)) b.draw(); // back rabbit first
+    for (const b of [main, friend].filter(b => b && !b.gone).sort((a, b) => a.r.d - b.r.d)) b.draw(); // back rabbit first
     drawGrass(true); // a few blades in front, so the rabbits sit in the grass
     if (zs.length) { // z's over a sleeping rabbit
       g.save(); g.textAlign = 'center';
@@ -1084,6 +1140,7 @@ window.mountRabbit = (box, opt = {}) => {
       if (!bugs.length) { fleeing = false; running = false; render(); return; }
     } else step(dt);
     render();
+    if (!wantOut && main.gone && !friend && !bugs.length && !tune.ambient) { running = false; return; } // all gone: the ground rests
     requestAnimationFrame(frame);
   }
   let entered = false;
@@ -1091,20 +1148,42 @@ window.mountRabbit = (box, opt = {}) => {
     if (still) return;
     fleeing = false;
     if (running) return;
-    if (opt.enter && !entered) { // from just off one side, hop in to a spot not far from that edge
-      entered = true;
-      const fromLeft = chance(0.5);
-      main.enterFrom(fromLeft, fromLeft ? rand(margin() + 20 * S, W * 0.3) : rand(W * 0.7, W - margin() - 20 * S));
-      cv.classList.add('out');
-    }
+    if (opt.enter && !entered && wantOut) comeIn();
     running = true; last = performance.now(); requestAnimationFrame(frame);
+  }
+
+  // ── On stage or away ──
+  // With opt.manual the owner decides when the rabbit is out (the slideshow's stage schedule).
+  // Going away, it finishes what it's doing and hops off the nearer side; coming back, it hops
+  // in from a side, or turns round if it hadn't quite left yet.
+  let wantOut = !opt.manual;
+  let visitNo = 0;
+  const firstVisit = () => opt.manual && visitNo <= 1; // no carrots on the first visit: saved as a later surprise
+  const spotNear = fromLeft => (fromLeft ? rand(margin() + 20 * S, W * 0.3) : rand(W * 0.7, W - margin() - 20 * S));
+  function comeIn() {
+    const r = main.r;
+    cv.classList.add('out');
+    if (entered && !main.gone) {
+      if (r.visit === 'leave') { r.visit = null; r.entering = false; main.goTo(spotNear(r.x < W / 2)); }
+      return;
+    }
+    entered = true; main.gone = false; r.visit = null; visitNo++;
+    const fromLeft = chance(0.5);
+    main.enterFrom(fromLeft, spotNear(fromLeft));
+    if (tune.friend && chance(0.6)) worldCool.friend = Math.min(worldCool.friend, rand(20, 50)); // often the friend tags along
+  }
+  function show(on) {
+    if (still || on === wantOut) return;
+    wantOut = on;
+    if (on) comeIn();
+    start();
   }
   function stop() {
     if (!running) return;
     if (bugs.length) fleeing = true; // let them fly off first
     else running = false;
   }
-  if (opt.active) {
+  if (opt.manual) { /* show() drives it */ } else if (opt.active) {
     const check = () => (opt.active() ? start() : stop());
     new MutationObserver(check).observe(opt.watch || box, { attributes: true, attributeFilter: ['class'] });
     check();
@@ -1146,12 +1225,14 @@ window.mountRabbit = (box, opt = {}) => {
     if (!F.bees) for (const b of bugs) if (b.type === 'bee') b.state = 'leave';
     if (tune.friend && !friendWasOn) worldCool.friend = rand(20, 45); // first visit soon after it unlocks
     if (!tune.friend && friend && friend.r.visit !== 'leave') friend.exit();
+    if (tune.ambient && entered) start(); // passers-by need the scene running while the rabbit is away
     render();
   }
 
   // a handle for poking at the meadow from the console
   return {
-    configure, features: F, tune, bugs, flowers, planted,
+    configure, show, features: F, tune, bugs, flowers, planted,
+    get out() { return wantOut; }, get present() { return entered && !main.gone; },
     get r() { return main.r; }, get main() { return main; }, get friend() { return friend; },
     force(what) {
       const extra = {

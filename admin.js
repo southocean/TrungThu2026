@@ -126,6 +126,13 @@
         ${SPEEDS.map(x => `<button type="button" class="dt-btn" data-speed="${x}" aria-pressed="false">${x}×</button>`).join('')}
         <button type="button" class="dt-btn dt-wide" id="dt-live">Real time</button>
       </div>
+      <div class="dt-rabbit">
+        <p id="dt-rabbit">Rabbit</p>
+        <div class="dt-row dt-wrap">
+          <button type="button" class="dt-btn dt-wide" id="dt-turn">End visit now</button>
+          <button type="button" class="dt-btn" id="dt-guard">Pass guard</button>
+        </div>
+      </div>
       <ol class="dt-rail" id="dt-rail"></ol>
       <details class="dt-more">
         <summary>Spawn</summary>
@@ -136,6 +143,8 @@
     $('dt-prev').onclick = () => { meadow()?.step(-1); render(); };
     $('dt-next').onclick = () => { meadow()?.step(1); render(); };
     $('dt-live').onclick = () => { meadow()?.live(); render(); };
+    $('dt-turn').onclick = () => { meadow()?.rabbitNow(); render(); };
+    $('dt-guard').onclick = () => { const m = meadow(); if (m) { const r = m.rabbit(); m.guard(r.seen < r.of); render(); } };
     panel.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { meadow()?.setSpeed(Number(b.dataset.speed)); render(); });
     panel.querySelectorAll('[data-force]').forEach(b => b.onclick = () => meadow()?.force(b.dataset.force));
     $('dt-rail').addEventListener('click', e => {
@@ -150,8 +159,8 @@
     if (!m) return;
     const s = m.state();
     if (!built) { // milestones and the quiet stretch, in clock order
-      const rows = [...m.phases.map(p => ({ min: p.min, html: `<button type="button" data-min="${p.min}"><time>${p.at}</time>${esc(p.name)}</button>` })),
-        ...m.quiet.map(q => ({ min: q.fromMin, html: `<span class="dt-quiet"><time>${q.from}–${q.to}</time>Quiet · ${esc(q.why)}</span>` }))]
+      const rows = [...m.phases.map(p => ({ min: p.min, html: `<button type="button" data-min="${p.min}"><time>${p.at}</time><span>${esc(p.name)}${p.stage ? `<small>Rabbit ${esc(p.stage)}</small>` : ''}</span></button>` })),
+        ...m.quiet.map(q => ({ min: q.fromMin, html: `<span class="dt-quiet"><time>${q.from}–${q.to}</time><span>Quiet · ${esc(q.why)}<small>Rabbit ${esc(q.stage)}</small></span></span>` }))]
         .sort((a, b) => a.min - b.min);
       $('dt-rail').innerHTML = rows.map(r => `<li>${r.html}</li>`).join('');
       built = true;
@@ -163,6 +172,13 @@
       `<br><span>Programme: ${esc(s.programme)}${s.quiet ? ' · quiet' : ''}</span>`;
     panel.querySelectorAll('[data-speed]').forEach(b => b.setAttribute('aria-pressed', String(s.source === 'sim' && s.speed === Number(b.dataset.speed))));
     $('dt-live').disabled = s.source !== 'sim';
+    const r = m.rabbit(), left = r.nextIn != null ? ` · ${Math.floor(r.nextIn / 60)}:${String(Math.round(r.nextIn % 60)).padStart(2, '0')} left` : '';
+    $('dt-rabbit').innerHTML = !r.on ? '<b>Rabbit off</b> (button in the slideshow)' :
+      r.seen < r.of ? `<b>Rabbit waits for the first loop</b> · ${r.seen}/${r.of} slides seen 5 s` :
+      `<b>Rabbit ${r.out ? 'out' : 'away'}</b>${left}<br><span>Now: ${esc(r.plan)}</span>`;
+    $('dt-turn').textContent = r.out ? 'End visit now' : 'Bring it out now';
+    $('dt-turn').disabled = !r.on || r.seen < r.of || r.nextIn == null;
+    $('dt-guard').textContent = r.seen < r.of ? 'Pass guard' : 'Reset guard';
     panel.querySelectorAll('#dt-rail [data-min]').forEach((b, i) => {
       b.classList.toggle('on', i === s.idx);
       b.classList.toggle('past', i < s.idx);

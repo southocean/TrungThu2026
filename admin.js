@@ -193,7 +193,7 @@
       built = true;
     }
     $('dt-time').textContent = s.time;
-    $('dt-src').textContent = { live: 'Live · Stockholm', play: 'Play time', sim: `Simulated · ${s.speed}×` }[s.source];
+    $('dt-src').textContent = { live: 'Live · Stockholm', visit: 'Visitor timeline', sim: `Simulated · ${s.speed}×` }[s.source];
     $('dt-src').dataset.src = s.source;
     $('dt-now').innerHTML = `<b>${esc(s.phase)}</b>` + (s.next ? ` · next ${s.next.at} ${esc(s.next.name)}` : ' · last milestone') +
       `<br><span>Programme: ${esc(s.programme)}${s.quiet ? ' · quiet' : ''}</span>` +

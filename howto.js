@@ -146,7 +146,7 @@
     const s = m.state(), rb = m.rabbit();
     const bugs = w.bugs, flies = bugs.filter(b => b.type === 'fly'), bees = bugs.filter(b => b.type === 'bee');
     const chips = [
-      ['Clock', `${s.time} · ${{ live: 'live, Stockholm', play: 'play time', sim: `simulated ${s.speed}×` }[s.source]}`],
+      ['Clock', `${s.time} · ${{ live: 'live, Stockholm', visit: 'visitor timeline', sim: `simulated ${s.speed}×` }[s.source]}`],
       ['Phase', s.phase + (s.quiet ? ' · quiet stretch' : '')],
       ['Jade rabbit', !rb.on ? 'switched off' : rb.waiting ? `waiting, ${rb.seen}/${rb.of} slides seen` : rabbitState(w.main, w.present)],
       ['Friend', w.friend ? `${rabbitState(w.friend, true)} · ${w.tune.resident ? 'resident' : 'visiting'}` : w.tune.friend ? 'not here' : 'not yet (from 14:15)'],
@@ -209,7 +209,12 @@
       <div class="how-chart"><svg viewBox="0 0 ${VW} ${H + 6}" role="img" aria-label="The afternoon from 13:50 to 17:30: programme, quiet stretch 14:30 to 15:30, how much of the time the rabbit is out, grass level, rains and milestones">${svg}</svg></div>
       <ol class="how-key">${m.phases.map(p => `<li><b>${esc(p.at)}</b> ${esc(p.name)}</li>`).join('')}</ol>
       <h3>The clock</h3>
-      <p>On Saturday 24 October it’s the real time in Stockholm, so a pause, a reload or a second screen never puts the meadow out of step. Any other day it’s play time counted from 14:00. Admin can run a simulated clock at 1×, 10× or 60× from the panel beside the slideshow; it lives only in that browser tab.</p>
+      <p>On Saturday 24 October from 13:00 it’s the real time in Stockholm, so a pause, a reload or a second screen never puts the meadow out of step. Admin can run a simulated clock at 1×, 10× or 60× from the panel beside the slideshow; it lives only in that browser tab.</p>
+      <h3>For web visitors: the afternoon in ten minutes</h3>
+      <p>Before 13:00 on the day, and any other day, nobody browsing will stay three hours, so visitors get their own timeline on their own watching time (only while the slideshow is on screen; a reload carries on). The quiet stretch is skipped, the rabbit is always out, the friend comes round six times as often, and each rain gets 25–45 seconds.</p>
+      <div class="how-table"><table><thead><tr><th>Watched</th><th>Event clock</th><th>Milestone</th></tr></thead><tbody>
+        ${[...m.phases.map(p => ({ min: p.min, at: p.at, name: p.name })), ...m.rains.map(r => ({ min: r.min, at: r.at, name: '☂ ' + r.name }))].sort((a, b) => a.min - b.min).map(x => { const sec = Math.round(m.visit.at(x.min)); return `<tr><td class="num">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</td><td>${esc(x.at)}</td><td>${esc(x.name)}</td></tr>`; }).join('')}
+      </tbody></table></div>
       <h3>Before anything: the guard</h3>
       <p>On the day, from 13:00 (an hour before the start, by the real Stockholm clock), the rabbit stays hidden until every slide has been on screen for 5 s in one go (remembered for the day), so the room sees the slides clean first. Before that, and after the day, there is no guard: anyone opening the site gets the rabbit straight away. Then the stage plan below takes over. The rabbit button in the slideshow (or <kbd>R</kbd>) turns it all off.</p>
       <h3>Every milestone</h3>

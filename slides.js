@@ -262,15 +262,16 @@
   // ── Meadow phases ──
   // The scene grows on the event's clock, so it fits the programme: milestones land while the
   // slideshow is up and people are mingling, never in the quiet stretch when the room watches
-  // the stage or the projector is taken for Kahoot. On the day (24/10, Stockholm time) the
-  // clock is the real time, so pauses, reloads and other screens all agree. Any other day it
-  // is play time counted from 14:00 (only time spent playing counts, kept per day).
+  // the stage or the projector is taken for Kahoot. On the day from 13:00 (Stockholm time) the
+  // clock is the real time, so pauses, reloads and other screens all agree. Before that, and on any
+  // other day, web visitors get the VISIT timeline: the whole afternoon in about ten minutes of
+  // their own watching time (see VISIT below).
   // `stage` is how much of the time the rabbit is out: visits of `on` seconds with breaks of `off`
   // seconds. It ramps up before the quiet stretch, drops right back in it (a rare visit, with
   // butterflies and the odd bee drifting through meanwhile), and from 15:30, when the grass marks
   // the new part of the afternoon, ramps up again until it stays.
   // Specs and reasoning: docs/meadow-plan.html. Each row applies on top of the ones before it.
-  const EVENT_DAY = '2026-10-24', TZ = 'Europe/Stockholm', START = 14 * 60;
+  const EVENT_DAY = '2026-10-24', TZ = 'Europe/Stockholm';
   const PHASES = [
     { at: '14:00', name: 'Just the rabbit', features: {}, tune: { // full baseline, so stepping back undoes later rows
       flies: 0, flyChance: 0.06, binky: false, flowers: 2, bees: 1, carrots: 1,
@@ -314,9 +315,49 @@
     return { day: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) + Number(p.second) / 60 };
   }
 
-  const clockKey = `tt-playtime-${wallClock().day}`;
-  let playMs = 0;
-  try { playMs = Number(localStorage.getItem(clockKey)) || 0; } catch {}
+  // The event mode: on the day from 13:00 (an hour before the start), by the real clock, whatever
+  // the admin clock says. Then the room gets the real afternoon and the see-every-slide guard.
+  const GUARD_FROM = 13 * 60;
+  function guardOn() { const w = wallClock(); return w.day === EVENT_DAY && w.min >= GUARD_FROM; }
+
+  // ── The visitor timeline ──
+  // Someone browsing the site won't stay three hours, so outside the event the afternoon plays in about
+  // ten minutes of their watching time: [seconds watched, event clock]. The quiet stretch is skipped,
+  // the stretches between milestones are short, and each rain gets 25–45 real seconds so it's seen.
+  // Between rows the clock runs straight; after the last row it carries on at real speed.
+  const VISIT = [
+    [0, '14:00'], [30, '14:10'], [60, '14:15'], [95, '14:25'], [110, '14:29.9'],
+    [111, '15:29.9'], [120, '15:30'],                                   // the quiet stretch, skipped
+    [150, '15:36'], [180, '15:36.84'],                                  // drizzle, 30 s
+    [205, '15:40'], [240, '15:50'],
+    [262, '15:54'], [302, '15:55.17'],                                  // rain, 40 s
+    [330, '16:00'],
+    [350, '16:06'], [380, '16:06.84'],                                  // drizzle, 30 s
+    [395, '16:10'], [430, '16:20'],
+    [455, '16:28'], [500, '16:29.5'],                                   // heavy rain, 45 s
+    [525, '16:40'], [550, '16:50'],
+    [560, '16:52'], [585, '16:52.75'],                                  // drizzle, 25 s
+    [600, '16:55'], [620, '17:00'],                                     // fireflies, the friend moves in
+  ].map(([sec, at]) => { const [h, m] = at.split(':').map(Number); return [sec, h * 60 + m]; });
+  const visitMin = sec => {
+    for (let i = 1; i < VISIT.length; i++) {
+      const [s0, m0] = VISIT[i - 1], [s1, m1] = VISIT[i];
+      if (sec <= s1) return m0 + ((sec - s0) / (s1 - s0)) * (m1 - m0);
+    }
+    const [sl, ml] = VISIT[VISIT.length - 1];
+    return ml + (sec - sl) / 60;
+  };
+  const visitSec = min => { // the other way round, for the Log
+    for (let i = 1; i < VISIT.length; i++) {
+      const [s0, m0] = VISIT[i - 1], [s1, m1] = VISIT[i];
+      if (min <= m1) return s0 + ((min - m0) / ((m1 - m0) || 1)) * (s1 - s0);
+    }
+    return VISIT[VISIT.length - 1][0];
+  };
+  // seconds this visitor has watched (slideshow on screen, tab in front); a reload carries on
+  let visitS = 0;
+  try { visitS = Number(sessionStorage.getItem('tt-visit')) || 0; } catch {}
+  const visitorMode = () => !sim && !guardOn();
 
   // Admin can run a simulated clock (any time, any speed). It lives in sessionStorage so the
   // home page's dev panel and this slideshow share it, and a reload keeps it.
@@ -329,9 +370,8 @@
 
   function clock() {
     if (sim) return { min: sim.min, source: 'sim', speed: sim.speed };
-    const w = wallClock();
-    if (w.day === EVENT_DAY) return { min: w.min, source: 'live', speed: 1 };
-    return { min: START + playMs / 60000, source: 'play', speed: 1 };
+    if (guardOn()) return { min: wallClock().min, source: 'live', speed: 1 };
+    return { min: visitMin(visitS), source: 'visit', speed: 1 };
   }
 
   let phaseKey = '';
@@ -348,20 +388,24 @@
   }
   const quietAt = min => QUIET.find(q => min >= q.fromMin && min < q.toMin) || null;
   function applyPhase() {
-    const min = clock().min, idx = phaseAt(min), quiet = quietAt(min), key = `${idx}${quiet ? 'q' : ''}`;
+    const min = clock().min, idx = phaseAt(min), quiet = quietAt(min), visit = visitorMode(), key = `${idx}${quiet ? 'q' : ''}${visit ? 'v' : ''}`;
     if (key === phaseKey || !window.slideRabbit) return;
     phaseKey = key;
     const features = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false }, tune = {};
     for (const p of PHASES.slice(0, idx + 1)) { Object.assign(features, p.features); Object.assign(tune, p.tune); }
     tune.ambient = !!quiet;
+    if (visit) { // ten minutes instead of three hours: the friend comes round about six times as often
+      if (tune.friendEvery) tune.friendEvery = tune.friendEvery.map(x => x / 6);
+      if (tune.friendStay) tune.friendStay = tune.friendStay.map(x => Math.max(30, x / 2));
+    }
     slideRabbit.configure({ features, tune });
   }
   let lastTick = performance.now(), saveIn = 0;
   setInterval(() => {
     const now = performance.now(), dt = now - lastTick;
-    if (playing) {
-      playMs += dt;
-      if ((saveIn -= 1) <= 0) { saveIn = 5; try { localStorage.setItem(clockKey, String(Math.round(playMs))); } catch {} }
+    if (document.visibilityState === 'visible' && !document.body.classList.contains('unseen')) {
+      visitS += dt / 1000; // only time the slideshow is actually seen
+      if ((saveIn -= 1) <= 0) { saveIn = 5; try { sessionStorage.setItem('tt-visit', String(Math.round(visitS))); } catch {} }
     }
     if (sim) { sim.min += (dt / 60000) * sim.speed; saveSim(); }
     lastTick = now;
@@ -392,6 +436,7 @@
     },
     setSpeed(speed) { sim = { min: clock().min, speed }; saveSim(); },
     live() { sim = null; saveSim(); applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); },
+    visit: { at: min => visitSec(min), get watched() { return visitS; }, reset() { visitS = 0; try { sessionStorage.removeItem('tt-visit'); } catch {} applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); } },
     rains: RAINS.map(({ at, min, secs, name, grass, level }) => ({ at, min, secs, name, grass, level })),
     // the whole afternoon at any minute, for the How it works timeline
     at(min) {
@@ -421,8 +466,7 @@
   // The guard only applies on the day itself, from an hour before the start (13:00 Stockholm, by the
   // real clock, whatever the admin clock says). Before that, and after the day, anyone opening the site
   // gets the rabbit straight away: nobody browsing would ever sit through a whole loop first.
-  const GUARD_FROM = 13 * 60;
-  const guardOn = () => { const w = wallClock(); return w.day === EVENT_DAY && w.min >= GUARD_FROM; };
+
   const seenKey = `tt-seen-${wallClock().day}`;
   let seen = new Set();
   try { seen = new Set(JSON.parse(localStorage.getItem(seenKey)) || []); } catch {}
@@ -442,7 +486,7 @@
       shownFor += dt;
       if (shownFor >= GUARD_MS && !seen.has(cur)) { seen.add(cur); saveSeen(); }
     } else shownFor = 0;
-    const now = performance.now(), plan = planNow();
+    const now = performance.now(), plan = visitorMode() ? 'always' : planNow(); // visitors: always out
     if (plan !== lastPlan) { // the plan changed (a milestone, the quiet stretch): a long break or visit is cut to fit it
       if (turnAt && plan !== 'always') turnAt = Math.min(turnAt, now + secs(out ? plan.on : plan.off));
       lastPlan = plan;
@@ -471,7 +515,7 @@
   hud.className = 'meadow-hud'; hud.hidden = true;
   document.body.append(hud);
   function showHud() {
-    const s = meadow.state(), src = { live: 'live', play: 'play time', sim: `simulated ×${s.speed}` }[s.source];
+    const s = meadow.state(), src = { live: 'live', visit: `visitor, ${Math.floor(visitS / 60)}:${String(Math.floor(visitS % 60)).padStart(2, '0')} watched`, sim: `simulated ×${s.speed}` }[s.source];
     const rb = meadow.rabbit();
     const rab = !rb.on ? 'rabbit off' : rb.waiting ? `rabbit waits: ${rb.seen}/${rb.of} slides seen` :
       `rabbit ${rb.out ? 'out' : 'away'}` + (rb.nextIn != null ? ` ${Math.round(rb.nextIn)} s more` : '');

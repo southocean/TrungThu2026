@@ -250,12 +250,12 @@ window.mountRabbit = (box, opt = {}) => {
   }
 
   // ── Drawing helpers shared by the scene ──
-  function drawCarrot(x, y, ang, len, sc) {
-    // origin at the leafy end, root along +x
+  function drawCarrot(x, y, ang, len, sc, leaves = true) {
+    // origin at the leafy end (or the broken end of a snapped-off piece), root along +x
     const L = 30 * len, w = 5.2;
     g.save(); g.translate(x, y); g.rotate(ang); g.scale(sc, sc);
     g.fillStyle = '#3f9a4a';
-    for (const a of [-0.5, 0, 0.5]) { g.beginPath(); g.ellipse(-6 * Math.cos(a), -6 * Math.sin(a), 7, 2.4, a, 0, TAU); g.fill(); }
+    if (leaves) for (const a of [-0.5, 0, 0.5]) { g.beginPath(); g.ellipse(-6 * Math.cos(a), -6 * Math.sin(a), 7, 2.4, a, 0, TAU); g.fill(); }
     if (L > 1) {
       const bitten = len < 0.98, tipW = bitten ? w * (1 - len) + 1.2 : 0.6; // a bitten end is blunt
       g.fillStyle = '#ff8a2a';
@@ -266,6 +266,7 @@ window.mountRabbit = (box, opt = {}) => {
         g.beginPath(); g.moveTo(px, edge + 1); g.lineTo(px + 2, edge + 3); g.stroke();
       }
       if (bitten) { g.fillStyle = '#ffd08a'; g.beginPath(); g.ellipse(L, 0, 1.2, tipW, 0, 0, TAU); g.fill(); }
+      if (!leaves) { g.fillStyle = '#ffd08a'; g.beginPath(); g.ellipse(0, 0, 1.4, w, 0, 0, TAU); g.fill(); } // the snapped face
     }
     g.restore();
   }
@@ -719,14 +720,24 @@ window.mountRabbit = (box, opt = {}) => {
           flat = 0.35; r.eyesShut = true; earsT = [-1.2, -1.05]; noseRate = 3;
           if (r.t > r.until) rest(1, 2.5);
           break;
-        case 'share': { // nibbling the other end of the friend's carrot
+        case 'share': { // bites the far end of the other's carrot; a short tug, it snaps, each keeps a half
           r.y = groundY(r.d);
           const o = r.shareWith, c = o && o.carrot;
-          if (!o || !c || o.r.mode !== 'eat') { r.shareWith = null; rest(1, 2.5); break; }
+          if (!o || !c || o.r.mode !== 'eat' || c.len < 0.4) { r.shareWith = null; rest(1, 2.5); break; }
           r.face = -o.r.face;
-          const far = o.mouthX() + o.r.face * (30 * c.len + 2) * o.sc();
-          r.x = ease(r.x, far + o.r.face * 28 * sc() / (0.9 + r.d * 0.1), 6, dt);
-          chew = 1; noseRate = 18; earsT = [-0.55, -0.3];
+          if (r.t < 0.3) { // lean in to the end (the carrot holds still during the tug, so nothing drifts)
+            const far = o.mouthX() + o.r.face * (30 * c.len + 2) * o.sc();
+            r.x = ease(r.x, far + o.r.face * 28 * sc() / (0.9 + r.d * 0.1), 10, dt);
+          }
+          headDown = 0.1 - Math.min(1, r.t / 0.9) * 0.25; earsT = [-0.35, -0.1]; noseRate = 24; // pulling back a touch
+          if (r.t > 0.9) { // snap
+            const half = c.len / 2;
+            c.len = half; c.top = false; // the eater keeps the root half; its far end is now broken
+            o.r.shake = r.shake = 0.5; o.r.squash = r.squash = 0.15;
+            r.shareWith = null;
+            carrot = { x: mouthX(), len: half, state: 'mouth', out: 1 }; // the leafy half, broken end in its mouth
+            setMode('eat');
+          }
           break;
         }
         case 'chase': { // following one butterfly, now and then switching to another
@@ -788,11 +799,11 @@ window.mountRabbit = (box, opt = {}) => {
           carrot.out = 0.12 + (r.t / r.until) * 0.88;
           if (r.t > r.until) { carrot.state = 'mouth'; startEating(); }
           break;
-        case 'eat': { // munch from the tip until it's gone (faster when shared)
+        case 'eat': { // munch from the tip until it's gone (holding still while the other tugs to share)
           r.y = groundY(r.d);
-          chew = 1; noseRate = 18; earsT = [-0.55, -0.3];
-          const p = partner(), shared = p && p.r.mode === 'share' && p.r.shareWith === me;
-          carrot.len -= (dt / 5.5) * (shared ? 1.8 : 1);
+          const p = partner(), tug = p && p.r.mode === 'share' && p.r.shareWith === me;
+          chew = tug ? 0 : 1; noseRate = 18; earsT = tug ? [-0.3, -0.1] : [-0.55, -0.3];
+          if (!tug) carrot.len -= dt / 5.5;
           if (carrot.len <= 0) { carrot = null; cool.carrot = rand(10, 20); rest(1.5, 3); }
           break;
         }
@@ -988,7 +999,7 @@ window.mountRabbit = (box, opt = {}) => {
         if (r.twist) { g.translate(0, -16); g.rotate(r.twist); g.translate(0, 16); }
         if (r.shake) g.rotate(Math.sin(r.shake * 40) * 0.08 * r.shake);
         const mouth = drawGround();
-        if (carrot?.state === 'mouth') drawCarrot(mouth[0] + 30 * carrot.len + 2, mouth[1] + 1, Math.PI + 0.12, carrot.len, 1);
+        if (carrot?.state === 'mouth') drawCarrot(mouth[0] + 30 * carrot.len + 2, mouth[1] + 1, Math.PI + 0.12, carrot.len, 1, carrot.top !== false);
       }
       g.restore();
     }

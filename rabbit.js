@@ -1081,11 +1081,10 @@ window.mountRabbit = (box, opt = {}) => {
         ['c', hx, hy, 10.5],
         ear(baseNear, r.earB + ang),
       ], front ? (arm ? [6, 7] : [5, 6]) : farFront ? [6] : [2, 7]); // which shapes are ears (for ear colour)
-      if (farFront) { // the far ear held over the face: its own outline and the back of the ear a touch shaded
+      if (farFront) { // the far ear held over the face: no outline, just the back of the ear a touch shaded
         const e = ear(baseFar, r.earA + ang);
-        g.lineWidth = 2.6; g.strokeStyle = 'rgba(40, 20, 70, .55)'; shape(e); g.stroke();
         g.fillStyle = look.ears || look.fur; shape(e); g.fill();
-        g.fillStyle = look.shade; shape(e); g.fill();
+        g.fillStyle = look.shade; shape(e); g.fill(); shape(e); g.fill(); // shaded twice so it reads against the face without a line
       }
       if (look.spot) { g.fillStyle = look.spot; g.beginPath(); g.ellipse(-6 - f * 2, -20 + f * 6, 8, 5, -0.2, 0, TAU); g.fill(); }
       g.fillStyle = look.shade;

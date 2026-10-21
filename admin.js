@@ -111,7 +111,7 @@
   }
 
   const SPEEDS = [1, 10, 60];
-  const SPAWN = [['fly', 'Butterfly'], ['bee', 'Bee'], ['flower', 'Flower'], ['carrot', 'Carrot'], ['friend', 'Friend'], ['friendLeave', 'Friend leaves']];
+  const SPAWN = [['fly', 'Butterfly'], ['bee', 'Bee'], ['flower', 'Flower'], ['carrot', 'Carrot'], ['friend', 'Friend'], ['friendLeave', 'Friend leaves'], ['rain', 'Rain (40 s)']];
   let built = false;
   function build() {
     panel.innerHTML = `
@@ -148,8 +148,8 @@
     panel.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { meadow()?.setSpeed(Number(b.dataset.speed)); render(); });
     panel.querySelectorAll('[data-force]').forEach(b => b.onclick = () => meadow()?.force(b.dataset.force));
     $('dt-rail').addEventListener('click', e => {
-      const b = e.target.closest('[data-min]');
-      if (b) { meadow()?.setClock(Number(b.dataset.min)); render(); }
+      const b = e.target.closest('[data-min], [data-jump]');
+      if (b) { meadow()?.setClock(Number(b.dataset.min ?? b.dataset.jump)); render(); }
     });
     built = false;
   }
@@ -159,7 +159,8 @@
     if (!m) return;
     const s = m.state();
     if (!built) { // milestones and the quiet stretch, in clock order
-      const rows = [...m.phases.map(p => ({ min: p.min, html: `<button type="button" data-min="${p.min}"><time>${p.at}</time><span>${esc(p.name)}${p.stage ? `<small>Rabbit ${esc(p.stage)}</small>` : ''}</span></button>` })),
+      const rows = [...(m.rains || []).map(x => ({ min: x.min + 0.001, html: `<button type="button" class="dt-rain" data-jump="${x.min}"><time>${x.at}</time><span>☂ ${esc(x.name)}<small>${Math.round(x.secs)} s${x.grass ? `, grass +${Math.round(x.grass * 100)}%` : ''}</small></span></button>` })),
+        ...m.phases.map(p => ({ min: p.min, html: `<button type="button" data-min="${p.min}"><time>${p.at}</time><span>${esc(p.name)}${p.stage ? `<small>Rabbit ${esc(p.stage)}</small>` : ''}</span></button>` })),
         ...m.quiet.map(q => ({ min: q.fromMin, html: `<span class="dt-quiet"><time>${q.from}–${q.to}</time><span>Quiet · ${esc(q.why)}<small>Rabbit ${esc(q.stage)}</small></span></span>` }))]
         .sort((a, b) => a.min - b.min);
       $('dt-rail').innerHTML = rows.map(r => `<li>${r.html}</li>`).join('');
@@ -169,7 +170,8 @@
     $('dt-src').textContent = { live: 'Live · Stockholm', play: 'Play time', sim: `Simulated · ${s.speed}×` }[s.source];
     $('dt-src').dataset.src = s.source;
     $('dt-now').innerHTML = `<b>${esc(s.phase)}</b>` + (s.next ? ` · next ${s.next.at} ${esc(s.next.name)}` : ' · last milestone') +
-      `<br><span>Programme: ${esc(s.programme)}${s.quiet ? ' · quiet' : ''}</span>`;
+      `<br><span>Programme: ${esc(s.programme)}${s.quiet ? ' · quiet' : ''}</span>` +
+      `<br><span>Grass ${s.grass ?? 0}%${s.rain ? ` · ☂ ${esc(s.rain)}` : ''}</span>`;
     panel.querySelectorAll('[data-speed]').forEach(b => b.setAttribute('aria-pressed', String(s.source === 'sim' && s.speed === Number(b.dataset.speed))));
     $('dt-live').disabled = s.source !== 'sim';
     const r = m.rabbit(), left = r.nextIn != null ? ` · ${Math.floor(r.nextIn / 60)}:${String(Math.round(r.nextIn % 60)).padStart(2, '0')} left` : '';

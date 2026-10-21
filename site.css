@@ -318,3 +318,5 @@ body.admin .ss-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px
 .dt-rabbit { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .dt-rabbit p { margin: 0; color: var(--ink-soft); line-height: 1.45; }
 .dt-rabbit b { color: var(--ink); }
+.dt-rail .dt-rain { color: #bcd4ff; }
+.dt-rail .dt-rain time { color: #9cc2ff; }

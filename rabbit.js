@@ -33,7 +33,7 @@
 window.mountRabbit = (box, opt = {}) => {
   if (!box) return;
   const interactive = opt.interactive !== false;
-  const F = { grass: false, flowers: false, growCarrots: false, bees: false, ...opt.features };
+  const F = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false, ...opt.features };
   // How busy it gets; the slideshow raises these over play time (PHASES in slides.js).
   //   flies: most butterflies at once · flyChance: odds one turns up per check (every 4–9 s)
   //   binky: allowed · flowers / bees / carrots: most at once (also capped by the box's width)
@@ -44,7 +44,13 @@ window.mountRabbit = (box, opt = {}) => {
     flies: 1, flyChance: 0.1, binky: true, flowers: 8, bees: 2, carrots: 3,
     friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ambient: false, ...opt.tune,
   };
-  let grassGrow = F.grass ? 1 : 0; // grass rises out of the soil over a couple of minutes when switched on
+  // Grass: how much of the meadow is grown, 0 (bare) … 1 (full). It eases toward its target (set by the
+  // slideshow: a few clumps when it switches on, then a step up with each rain), so it visibly grows.
+  let grassAmt = F.grass ? 1 : 0, grassTarget = grassAmt;
+  // Rain: 0 … 1, eased toward what the slideshow asks for (0.25 drizzle, 0.55 rain, 1 heavy).
+  let rain = 0, rainTarget = 0, wet = 0; // wet: the ground after rain (0 … 1), which speeds up everything that grows
+  const drops = [], splashes = [], sprays = []; // falling rain, splashes on the ground, water shaken off a rabbit
+  const fireflies = [];
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const cv = document.createElement('canvas');
@@ -112,22 +118,26 @@ window.mountRabbit = (box, opt = {}) => {
     friend: { fur: '#f3eadf', shade: 'rgba(150, 110, 80, .16)', inner: '#f2a7b8', ears: '#b98a62', spot: '#c99a72', scale: 0.86 },
   };
 
+  // Clumps across the whole floor. Each clump needs a grass level to show (a few come first, the
+  // rest fill in), and each blade a little more than its clump, so it thickens as it grows.
   function makeGrass() {
     grass = [];
-    const n = Math.max(3, Math.round(W / (150 * S)));
+    const n = Math.max(6, Math.round(W / (60 * S)));
+    const needs = Array.from({ length: n }, (_, i) => i / n).sort(() => Math.random() - 0.5);
     for (let i = 0; i < n; i++) {
-      const cx = ((i + rand(0.2, 0.8)) / n) * W, w = rand(26, 70) * S;
+      const cx = ((i + rand(0.15, 0.85)) / n) * W, w = rand(40, 90) * S, need = needs[i] * 0.85;
       const blades = [];
-      for (let b = 0, m = Math.round(w / (4 * S)); b < m; b++) {
-        blades.push({ x: cx - w / 2 + rand(0, w), h: rand(5, 14) * S, lean: rand(-4, 4) * S, ph: rand(0, TAU), dark: chance(0.5), front: chance(0.22) });
+      for (let b = 0, m = Math.round(w / (3.6 * S)); b < m; b++) {
+        blades.push({ x: cx - w / 2 + rand(0, w), h: rand(5, 15) * S, lean: rand(-4, 4) * S, ph: rand(0, TAU), dark: chance(0.5), front: chance(0.22), need: Math.min(0.97, need + rand(0, 0.25)) });
       }
-      grass.push({ x: cx, w, blades });
+      grass.push({ x: cx, w, need, blades });
     }
   }
+  const grassShown = p => grassAmt > p.need + 0.03;
   const spotFree = (x, gap) => flowers.every(f => Math.abs(f.x - x) > gap) && planted.every(c => Math.abs(c.x - x) > gap);
   function freeGroundSpot() { // somewhere in a grass patch, not crowding other plants
     for (let i = 0; i < 12; i++) {
-      const p = pick(grass), x = clamp(p.x + rand(-p.w / 2, p.w / 2), 20 * S, W - 20 * S);
+      const grown = grass.filter(grassShown), p = pick(grown.length ? grown : grass), x = clamp(p.x + rand(-p.w / 2, p.w / 2), 20 * S, W - 20 * S);
       if (spotFree(x, 26 * S)) return x;
     }
     return null;
@@ -153,6 +163,13 @@ window.mountRabbit = (box, opt = {}) => {
     };
   }
   const blooming = f => { const s = flowerState(f); return s.open > 0.6 && s.wilt < 0.3; };
+  // Where something lands on a flower: the middle of its top (a daisy or star's centre, a tulip's rim,
+  // the top of a bell), turning with the flower as it leans, lifted by `up` so it sits on it.
+  const FLOWER_TOP = { daisy: -2.2, star: -2.2, tulip: -9.4, bell: -0.6 };
+  function perchPoint(f, dx = 0, up = 0) {
+    const h = flowerHead(f), a = h.lean * 1.6, ly = (FLOWER_TOP[f.kind] ?? -2) * S - up;
+    return { x: h.x + dx * Math.cos(a) - ly * Math.sin(a), y: h.y + dx * Math.sin(a) + ly * Math.cos(a), a };
+  }
   function flowerHead(f) {
     const s = flowerState(f);
     const len = f.h * smooth(s.grow) * (1 - s.wilt * 0.25);
@@ -177,7 +194,7 @@ window.mountRabbit = (box, opt = {}) => {
       state: 'seek', target: null, t: 0, age: 0, visits: 0, wantVisits: type === 'bee' ? Math.floor(rand(3, 7)) : Math.floor(rand(2, 5)),
       life: type === 'bee' ? rand(25, 40) : rand(30, 55), flap: rand(0, TAU), wx: 0, wy: 0, zig: 0,
     };
-    if (type === 'fly') { b.wing = pick(WINGS); b.colors = pick(WING_COLORS); b.size = rand(0.9, 1.25); }
+    if (type === 'fly') { b.wing = pick(WINGS); b.colors = pick(WING_COLORS); b.size = rand(0.9, 1.25); b.view = chance(0.45) ? 'side' : 'top'; b.viewIn = rand(3, 8); }
     bugs.push(b);
   }
   function chooseFlower(b) {
@@ -199,9 +216,12 @@ window.mountRabbit = (box, opt = {}) => {
     for (let i = bugs.length - 1; i >= 0; i--) {
       const b = bugs[i], bee = b.type === 'bee';
       b.t += dt; b.age += dt;
-      b.flap += dt * (bee ? 60 : b.state === 'sip' ? 3 : 20);
+      b.flap += dt * (bee ? (b.parked ? 6 : 60) : b.state === 'sip' ? 3 : 20);
+      if (!bee && b.state !== 'sip' && (b.viewIn -= dt) < 0) { b.viewIn = rand(3, 8); if (chance(0.4)) b.view = b.view === 'side' ? 'top' : 'side'; } // turns now and then
+      if (rain > 0.2 && b.state !== 'leave') b.state = 'leave'; // nobody flies in the rain
       if (fleeing || (b.age > b.life && b.state !== 'sip')) b.state = 'leave';
       if (b.state === 'leave') {
+        b.parked = false;
         if (b.exitX == null) { b.exitX = b.x < W / 2 ? -60 * S : W + 60 * S; b.exitY = -40 * S; }
         moveBug(b, b.exitX, b.exitY, (bee ? 220 : 130) * S * (fleeing ? 2 : 1), dt);
         b.y += Math.sin(b.t * (bee ? 14 : 5)) * (bee ? 20 : 30) * S * dt;
@@ -211,13 +231,19 @@ window.mountRabbit = (box, opt = {}) => {
       if (b.state === 'seek') {
         if (!b.target || !blooming(b.target)) b.target = chooseFlower(b);
         if (!b.target) { wander(b); continue; }
-        const h = flowerHead(b.target), ty = h.y - (bee ? 10 : 3) * S;
+        if (b.perchFor !== b.target) { // where on this flower it settles: a little off the middle, its own angle
+          b.perchFor = b.target;
+          b.perch = { dx: rand(-1.1, 1.1) * S, view: bee || chance(0.5) ? 'side' : 'top', face: chance(0.5) ? 1 : -1 }; // body centred on the bloom
+          b.perch.tilt = b.perch.view === 'side' ? (chance(0.75) ? -1 : 1) * rand(0.12, 0.3) : (chance(0.5) ? -1 : 1) * rand(0.15, 0.35); // never quite level: side-on mostly head-up
+        }
+        const h = flowerHead(b.target), pp = perchPoint(b.target, b.perch.dx, perchUp(b)), ty = bee ? h.y - 10 * S : pp.y;
+        h.x = bee ? h.x : pp.x;
         if (bee) { // straight darts with sharp little zig-zags
           b.zig -= dt;
           if (b.zig < 0) { b.zig = rand(0.18, 0.32); b.wx = rand(-22, 22) * S; b.wy = rand(-16, 16) * S; }
           const close = Math.hypot(h.x - b.x, ty - b.y) < 30 * S;
           const d = moveBug(b, h.x + (close ? 0 : b.wx), ty + (close ? 0 : b.wy), 150 * S, dt);
-          if (d < 3 * S) { b.state = 'sip'; b.t = 0; b.sipFor = rand(1.5, 3); }
+          if (d < 3 * S) { b.state = 'sip'; b.t = 0; b.sipFor = rand(3.5, 6); b.phase = 'buzz'; b.pt = rand(0.5, 1); b.orbit = rand(0, TAU); }
         } else { // a fluttery, bobbing drift
           const d = moveBug(b, h.x, ty, 70 * S, dt);
           b.y += Math.sin(b.t * 6) * 26 * S * dt;
@@ -226,11 +252,24 @@ window.mountRabbit = (box, opt = {}) => {
         continue;
       }
       if (b.state === 'sip') {
-        if (!blooming(b.target)) { b.state = 'seek'; b.target = null; continue; }
+        if (!blooming(b.target)) { b.state = 'seek'; b.target = null; b.parked = false; continue; }
         const h = flowerHead(b.target);
-        if (bee) { b.x = h.x + Math.sin(b.t * 31) * 1.6 * S; b.y = h.y - 10 * S + Math.cos(b.t * 27) * 1.6 * S; } // hovering, not landing
-        else { b.x = h.x; b.y = h.y - 3 * S; }
-        if (b.t > b.sipFor) {
+        if (bee) { // buzzes round the flower, settles on it briefly to drink, buzzes again
+          b.pt -= dt;
+          if (b.phase === 'buzz') {
+            b.parked = false;
+            b.orbit += dt * 5.5;
+            const tx = h.x + Math.cos(b.orbit) * 14 * S, ty = h.y - 9 * S + Math.sin(b.orbit * 1.7) * 6 * S;
+            moveBug(b, tx, ty, 160 * S, dt);
+            if (b.pt < 0) { b.phase = 'park'; b.pt = rand(0.5, 1.1); }
+          } else {
+            const pp = perchPoint(b.target, b.perch.dx, perchUp(b)), tx = pp.x, ty = pp.y;
+            if (moveBug(b, tx, ty, 120 * S, dt) < 1.5 * S) { b.parked = true; b.dir = b.perch.face; }
+            if (b.pt < 0) { b.phase = 'buzz'; b.pt = rand(0.6, 1.3); b.parked = false; }
+          }
+        } else { const pp = perchPoint(b.target, b.perch.dx, perchUp(b)); b.x = pp.x; b.y = pp.y; b.lean = pp.a; b.dir = b.perch.face; }
+        if (b.t > b.sipFor && !(bee && b.phase === 'park')) {
+          b.parked = false;
           b.visits++;
           if (b.visits >= b.wantVisits) { b.state = 'leave'; continue; }
           if (!bee && chance(0.3)) wander(b);
@@ -280,13 +319,15 @@ window.mountRabbit = (box, opt = {}) => {
     if (k > 0.6) { g.fillStyle = '#ff8a2a'; g.beginPath(); g.ellipse(c.x, y, 4.5 * S * k, 2.6 * S * k, 0, Math.PI, TAU); g.fill(); }
   }
   function drawGrass(front) {
-    if (!F.grass || grassGrow <= 0) return;
-    const y = soil() + 2 * S;
+    if (grassAmt <= 0.001) return;
+    const y = soil() + 2 * S, tall = 0.75 + 0.45 * grassAmt; // a fuller meadow is a little taller too
     for (const p of grass) {
+      if (!grassShown(p)) continue;
       for (const b of p.blades) {
         if (b.front !== front) continue;
-        const sway = Math.sin(T * 1.4 + b.ph) * 1.4 * S;
-        const h = b.h * smooth(clamp(grassGrow * 1.6 - (b.ph / TAU) * 0.6, 0, 1)); // blades come up a few at a time
+        const sway = Math.sin(T * 1.4 + b.ph) * (1.4 + rain * 2) * S;
+        const h = b.h * tall * smooth(clamp((grassAmt - b.need) * 6, 0, 1)); // each blade rises once the meadow reaches it
+        if (h < 0.5) continue;
         g.fillStyle = b.dark ? '#2f6b45' : '#4f9a5c';
         g.beginPath();
         g.moveTo(b.x - 1.5 * S, y);
@@ -340,12 +381,15 @@ window.mountRabbit = (box, opt = {}) => {
     g.globalAlpha = 1;
     g.restore();
   }
+  const perchUp = b => (b.type === 'bee' ? 3.4 : b.perch?.view === 'side' ? 1.6 * 1.3 * b.size : 0.6) * S;
   function drawButterfly(b) {
     const sipping = b.state === 'sip';
     const open = sipping ? 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(b.flap)) : 0.2 + 0.8 * Math.abs(Math.sin(b.flap));
     const [c1, c2, c3] = b.colors;
+    const view = sipping && b.perch ? b.perch.view : b.view || 'top';
+    if (view === 'side') { drawButterflySide(b, sipping ? 0.15 * (0.5 + 0.5 * Math.sin(b.flap)) : Math.abs(Math.sin(b.flap))); return; }
     g.save(); g.translate(b.x, b.y); g.scale(S * 1.3 * b.size, S * 1.3 * b.size);
-    g.rotate(sipping ? 0 : Math.sin(b.t * 3) * 0.2);
+    g.rotate(sipping ? (b.perch?.tilt || 0) + (b.lean || 0) : Math.sin(b.t * 3) * 0.2);
     g.strokeStyle = 'rgba(40, 20, 70, .45)'; g.lineWidth = 0.8;
     for (const side of [-1, 1]) {
       g.save(); g.scale(side * open, 1);
@@ -367,10 +411,71 @@ window.mountRabbit = (box, opt = {}) => {
     g.beginPath(); g.moveTo(0, -4); g.quadraticCurveTo(-2, -9, -4, -10); g.moveTo(0, -4); g.quadraticCurveTo(2, -9, 4, -10); g.stroke();
     g.restore();
   }
+  // side-on: wings folded up together (open 0) or spread out flat (open 1), body along the flight
+  function drawButterflySide(b, open) {
+    const [c1, c2, c3] = b.colors, lift = 1 - open * 0.85;
+    g.save(); g.translate(b.x, b.y); g.scale(S * 1.3 * b.size * (b.dir || 1), S * 1.3 * b.size);
+    g.rotate(b.state === 'sip' ? (b.perch?.tilt || 0) + (b.lean || 0) * (b.dir || 1) : Math.sin(b.t * 3) * 0.12);
+    g.strokeStyle = 'rgba(40, 20, 70, .45)'; g.lineWidth = 0.8;
+    for (const k of [0, 1]) { // far wing a touch behind, then the near one
+      g.globalAlpha = k ? 1 : 0.8;
+      const o = -k * 1.3; // the far wing sits a little further back
+      g.fillStyle = c3; g.beginPath(); // hindwing: rounded, low and behind
+      g.moveTo(o - 0.5, -0.4); g.quadraticCurveTo(o - 0.5, -7.5 * lift - 0.5, o - 6.5, -7 * lift - 0.8); g.quadraticCurveTo(o - 9, -1.8 * lift, o - 2.5, 0.4); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = c1; g.beginPath(); // forewing: tall and pointed, swept back
+      g.moveTo(o + 2, -0.5); g.quadraticCurveTo(o + 5.5, -10 * lift - 0.5, o + 0.5, -15 * lift - 1.2); g.quadraticCurveTo(o - 5.5, -10.5 * lift - 0.6, o - 1.5, -0.4); g.closePath(); g.fill(); g.stroke();
+      if (lift > 0.35) { g.fillStyle = c2; g.beginPath(); g.arc(o + 1, -10.5 * lift, 1.3, 0, TAU); g.fill(); }
+    }
+    g.globalAlpha = 1;
+    g.fillStyle = '#2a1840'; g.beginPath(); g.ellipse(0, 0.4, 4.6, 1.1, 0, 0, TAU); g.fill();
+    g.beginPath(); g.arc(4.9, 0, 1.3, 0, TAU); g.fill();
+    g.strokeStyle = '#2a1840'; g.lineWidth = 0.7;
+    g.beginPath(); g.moveTo(5.6, -0.8); g.quadraticCurveTo(7.8, -3.8, 9.8, -5.6); g.moveTo(5.3, -1); g.quadraticCurveTo(6.8, -4.8, 7.5, -7.2); g.stroke();
+    g.restore();
+  }
+  function drawFirefly(f) {
+    const glow = f.on;
+    if (glow < 0.02) return;
+    const rad = (5 + 7 * glow) * S;
+    const grd = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, rad);
+    grd.addColorStop(0, `rgba(240, 255, 150, ${0.95 * glow})`);
+    grd.addColorStop(0.3, `rgba(200, 255, 90, ${0.45 * glow})`);
+    grd.addColorStop(1, 'rgba(200, 255, 90, 0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(f.x, f.y, rad, 0, TAU); g.fill();
+  }
+  function drawRain() {
+    if (rain < 0.01 && !drops.length && !splashes.length) return;
+    g.save();
+    if (rain > 0.05) { // the air goes a little grey low down, more in a downpour
+      const grd = g.createLinearGradient(0, H * 0.45, 0, H);
+      grd.addColorStop(0, 'rgba(120, 140, 190, 0)');
+      grd.addColorStop(1, `rgba(120, 140, 190, ${0.16 * rain})`);
+      g.fillStyle = grd; g.fillRect(0, H * 0.45, W, H * 0.55);
+    }
+    g.lineCap = 'round';
+    for (const d of drops) { // faint up top so the slides stay readable, clearer near the ground
+      g.strokeStyle = `rgba(200, 220, 255, ${(0.1 + 0.55 * (d.y / H)) * Math.min(1, rain * 2 + 0.2)})`;
+      g.lineWidth = d.w * S;
+      g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x - d.len * 0.22, d.y - d.len); g.stroke();
+    }
+    g.strokeStyle = 'rgba(210, 228, 255, .55)'; g.lineWidth = 1 * S;
+    for (const sp of splashes) {
+      const k = sp.t / 0.35;
+      g.globalAlpha = 1 - k;
+      g.beginPath(); g.ellipse(sp.x, sp.y, (2 + 5 * k) * S, (0.8 + 1.6 * k) * S, 0, Math.PI, TAU); g.stroke();
+    }
+    g.globalAlpha = 1;
+    g.restore();
+  }
+  function drawSprays() {
+    g.fillStyle = 'rgba(200, 225, 255, .85)';
+    for (const p of sprays) { g.globalAlpha = Math.max(0, 1 - p.t / 0.7); g.beginPath(); g.arc(p.x, p.y, 1.4 * S, 0, TAU); g.fill(); }
+    g.globalAlpha = 1;
+  }
   function drawBee(b) {
     g.save(); g.translate(b.x, b.y); g.scale(S * 1.2 * b.dir, S * 1.2);
-    g.rotate(Math.sin(b.t * 9) * 0.12);
-    const w = 0.4 + 0.6 * Math.abs(Math.sin(b.flap)); // wings: a fast blur
+    g.rotate(b.parked ? 0 : Math.sin(b.t * 9) * 0.12);
+    const w = b.parked ? 0.35 + 0.1 * Math.sin(b.flap) : 0.4 + 0.6 * Math.abs(Math.sin(b.flap)); // wings: a fast blur, or resting
     g.fillStyle = 'rgba(230, 245, 255, .7)';
     g.beginPath(); g.ellipse(-1, -4.5 * w - 1, 2.6, 4.5 * w, -0.4, 0, TAU); g.fill();
     g.beginPath(); g.ellipse(1.5, -4 * w - 1, 2.2, 4 * w, 0.3, 0, TAU); g.fill();
@@ -432,8 +537,8 @@ window.mountRabbit = (box, opt = {}) => {
     function startHops(n, dir, toX = null, kind = 'hop') {
       r.hops = n; r.pause = 0; r.face = dir; r.chaseX = toX;
       r.binky = kind === 'binky';
-      r.hopDur = r.binky ? 0.7 : 0.4;
-      r.hopH = r.binky ? 34 : 11;
+      r.hopDur = r.binky ? 0.7 : kind === 'leap' ? 0.55 : 0.4;
+      r.hopH = r.binky ? 34 : kind === 'leap' ? 44 : 11; // a leap: a startled high jump
       setMode('hop');
       nextHop();
     }
@@ -525,6 +630,8 @@ window.mountRabbit = (box, opt = {}) => {
       r.shareWith = null; // whatever sharing it was heading for is over by now
       if (r.visit === 'leave') return;
       if (!wantOut) { exit(); return; } // time to go: it has finished what it was doing, so off it hops
+      if (r.wet && rain < 0.12) { r.wet = false; setMode('shakeoff', 1.2); return; } // the rain's over: shake it all off
+      if (rain > 0.3 || (r.wet && rain >= 0.12)) { r.wet = true; setMode('hunker', rand(1.5, 4)); return; } // raining: hunch down and wait it out
       if (r.visit === 'stay' && r.greeted && r.stayLeft <= 0) { exit(); return; }
       // a visitor: first say hello, then stay close and sometimes play
       if (p && p.r.visit !== 'leave') {
@@ -603,7 +710,7 @@ window.mountRabbit = (box, opt = {}) => {
       r.glanceIn -= dt;
       const p = partner();
       const near = pointer.inside && Math.hypot(pointer.x - r.x, pointer.y - r.y) < 220 * S;
-      const watch = r.mode === 'chase' && r.focus ? r.focus : ['greet', 'groomOther', 'share'].includes(r.mode) && p ? { x: p.r.x, y: p.r.y - 25 * S } : null;
+      const watch = r.mode === 'chase' && r.focus ? r.focus : ['greet', 'groomOther', 'share'].includes(r.mode) && p ? { x: p.r.x, y: p.r.y - 25 * S } : r.wary && r.mode !== 'sleep' ? r.wary : null;
       if (watch) {
         r.lookTX = clamp((watch.x - r.x) * r.face / 50, -1, 1);
         r.lookTY = clamp((watch.y - (r.y - 30 * S)) / 50, -1, 1);
@@ -636,11 +743,20 @@ window.mountRabbit = (box, opt = {}) => {
       r.eyesShut = false;
       if (r.mode !== 'hop') { r.twist = 0; r.tilt = 0; }
 
-      // a bee buzzing right at its face: ears back and hop away
-      if (cool.avoid <= 0 && !['held', 'fall', 'land', 'hop', 'sleep', 'dig', 'pull', 'eat', 'share', 'greet'].includes(r.mode)) {
-        const hp = headPos();
-        const bee = bugs.find(b => b.type === 'bee' && Math.hypot(b.x - hp.x, b.y - hp.y) < 45 * S);
-        if (bee) { cool.avoid = 5; r.earA = r.earB = -1.3; r.goal = null; r.then = null; r.afterChase = false; startHops(2, bee.x > r.x ? -1 : 1); }
+      // bees: it doesn't trust them. Close by it watches with its ears back and hops away; right at
+      // its face (or waking it from a nap) it leaps up, startled, then hops off
+      const hp = headPos();
+      const bee = bugs.find(b => b.type === 'bee' && b.state !== 'leave' && Math.abs(b.x - hp.x) < 150 * S && b.y > hp.y - 140 * S);
+      r.wary = bee || null;
+      if (bee && cool.avoid <= 0 && !['held', 'fall', 'land', 'hop', 'dig', 'pull', 'eat', 'share', 'greet'].includes(r.mode)) {
+        const close = Math.hypot(bee.x - hp.x, bee.y - hp.y) < 60 * S, away = bee.x > r.x ? -1 : 1;
+        r.goal = null; r.then = null; r.afterChase = false; r.act = null; r.earA = r.earB = -1.3;
+        if (close || r.mode === 'sleep') {
+          cool.avoid = rand(2.5, 4);
+          startHops(1, away, null, 'leap');
+          setTimeoutish(me, 0.72, () => { if (r.mode === 'rest' || r.mode === 'hop') startHops(2, away); });
+        } else if (chance(0.5)) { cool.avoid = rand(3, 5); startHops(chance(0.5) ? 2 : 3, away); }
+        else cool.avoid = rand(1, 2); // keeps an eye on it for a moment first
       }
 
       switch (r.mode) {
@@ -811,24 +927,49 @@ window.mountRabbit = (box, opt = {}) => {
           if (carrot.len <= 0) { carrot = null; cool.carrot = rand(10, 20); rest(1.5, 3); }
           break;
         }
+        case 'hunker': // sitting out the rain: low, ears flat, now and then a look up at it
+          r.y = groundY(r.d);
+          flat = 0.35; headDown = 0.2; earsT = [-1.25, -1.1]; noseRate = 6;
+          if (Math.sin(r.t * 0.9 + r.x) > 0.93) { r.lookTY = -1; headDown = -0.2; }
+          if (r.t > r.until) decide();
+          break;
+        case 'shakeoff': { // a big shake from nose to tail, water flying, ears flapping
+          r.y = groundY(r.d);
+          if (r.t < 0.9) {
+            r.shake = 1 - r.t * 0.6; // the wobble comes from shake falling
+            earsT = Math.sin(r.t * 30) > 0 ? [-0.2, 0.3] : [-1.1, -0.9];
+            if (chance(dt * 40)) sprays.push({ x: r.x + rand(-18, 18) * S, y: r.y - rand(10, 34) * S, vx: rand(-160, 160) * S, vy: rand(-220, -60) * S, t: 0 });
+          }
+          if (r.t > r.until) { if (tune.binky && chance(0.6)) startHops(1, roomyDir(), null, 'binky'); else rest(1, 2); }
+          break;
+        }
         default: { // rest
           r.y = groundY(r.d);
           if (pointer.inside && !r.act && Math.abs(pointer.x - r.x) < 140 * S && Math.abs(pointer.x - r.x) > 12 * S) r.face = pointer.x > r.x ? 1 : -1;
           r.actT -= dt;
           if (r.actT < 0) {
-            if (r.act) { r.act = null; r.actT = rand(0.8, 2); }
+            if (r.act === 'earGroom' && chance(0.35) && !r.earBoth) { r.earBoth = true; r.earSide = 1 - r.earSide; r.actT = rand(1.8, 2.8); } // sometimes the other ear too
+            else if (r.act) { r.act = null; r.earBoth = false; r.waving = false; r.actT = rand(0.8, 2); }
             else {
               const a = Math.random();
-              r.act = a < 0.26 ? 'groom' : a < 0.48 ? 'sniff' : a < 0.66 ? 'rear' : a < 0.8 ? 'audience' : a < 0.9 ? 'turn' : 'loaf';
-              r.actT = { groom: rand(1.4, 2.4), sniff: rand(0.8, 1.6), rear: rand(1.2, 2), audience: rand(1.8, 3.2), turn: 0.01, loaf: rand(1.5, 3) }[r.act];
+              r.act = a < 0.17 ? 'groom' : a < 0.27 ? 'earGroom' : a < 0.43 ? 'sniff' : a < 0.56 ? 'rear' : a < 0.8 ? 'audience' : a < 0.9 ? 'turn' : 'loaf';
+              r.actT = { groom: rand(1.4, 2.4), earGroom: rand(2, 3.2), sniff: rand(0.8, 1.6), rear: rand(1.2, 2), audience: rand(1.8, 3.2), turn: 0.01, loaf: rand(1.5, 3) }[r.act];
+              if (r.act === 'earGroom') r.earSide = chance(0.5) ? 1 : 0; // one ear at a time
               if (r.act === 'turn') r.face *= -1;
               if (r.act === 'audience') { // first a straight look, ears straight into a pose
                 r.lookTX = r.lookTY = 0; r.glanceIn = rand(0.8, 1.6);
                 r.feT = pick(FRONT_EARS); r.fe = [...r.feT]; r.feIn = rand(0.9, 2);
+                r.waving = chance(0.12); // once in a while, a little wave to the room
+                if (r.waving) r.actT += 1;
               }
             }
           }
           if (r.act === 'groom') { paw = 1; headDown = 0.25 + Math.sin(r.t * 9) * 0.12; earsT = [-0.7, -0.5]; }
+          if (r.act === 'earGroom') { // pulls one ear down in front of its face with its paws and licks along it
+            paw = 1; headDown = 0.35 + Math.sin(r.t * 7) * 0.08; noseRate = 20;
+            const lick = Math.sin(r.t * 5) * 0.1; // pulled down in front of the face, tip by the paws
+            earsT = r.earSide ? [-0.6, 2.1 + lick] : [2.45 + lick, -0.35];
+          }
           if (r.act === 'sniff') { headDown = 0.75; noseRate = 24; }
           if (r.act === 'rear') { rear = 1; earsT = [0.05, 0.15]; noseRate = 16; }
           if (r.act === 'loaf') { earsT = [-1, -0.85]; }
@@ -838,7 +979,7 @@ window.mountRabbit = (box, opt = {}) => {
             if (r.feIn < 0) { r.feIn = rand(0.9, 2); r.feT = pick(FRONT_EARS); }
           }
           // a butterfly right overhead: chin up, eyes up at it
-          const hp = headPos(), above = r.act !== 'groom' && bugs.find(b => b.type === 'fly' && Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
+          const above = !['groom', 'earGroom'].includes(r.act) && bugs.find(b => b.type === 'fly' && Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
           if (above) { r.act = r.act === 'audience' ? null : r.act; headDown = -0.6; rear = Math.max(rear, 0.25); earsT = [0.05, 0.15]; r.lookTX = clamp((above.x - r.x) * r.face / 50, -1, 1); r.lookTY = -1; }
           if (r.t > r.until && (!r.act || r.act === 'loaf')) decide();
         }
@@ -847,6 +988,8 @@ window.mountRabbit = (box, opt = {}) => {
       const wasFront = r.toCam > 0.5;
       r.toCam = ease(r.toCam, r.mode === 'rest' && r.act === 'audience' ? 1 : 0, 6, dt);
       r.fe[0] = ease(r.fe[0], r.feT[0], 7, dt); r.fe[1] = ease(r.fe[1], r.feT[1], 7, dt);
+      r.wave = ease(r.wave || 0, r.waving && r.act === 'audience' && r.toCam > 0.5 && r.t > 0.3 ? 1 : 0, 6, dt);
+      if (r.wary && !['sleep', 'hunker'].includes(r.mode)) { r.earAT = Math.min(r.earAT, -1.1); r.earBT = Math.min(r.earBT, -0.95); } // ears back while a bee's about
       if (wasFront !== r.toCam > 0.5) r.squash = Math.max(r.squash, 0.18); // the turn reads as a little bounce
       r.headDown = ease(r.headDown, headDown, 6, dt);
       r.rear = ease(r.rear, rear, 5, dt);
@@ -905,29 +1048,44 @@ window.mountRabbit = (box, opt = {}) => {
       const [hx, hy] = rot(17 + hd * 5 + f * 7 + st * 4, -27 + hd * 11 + f * 11 + r.chew * Math.sin(r.t * 16) * 0.8);
       const body = rot(2, -16 + f * 6 + st * 2);
       let paw = rot(pawX, pawY);
-      if (r.paw > 0.01) { // grooming: paws come up to the face
-        const p2 = [hx + 5, hy + 6 + Math.sin(r.t * 9) * 2];
+      if (r.paw > 0.01) { // grooming: paws come up to the face (or hold the ear it's cleaning, in front of it)
+        const p2 = r.act === 'earGroom' ? [hx + 11 + Math.sin(r.t * 5) * 1.5, hy + 1 + Math.sin(r.t * 7) * 1.2] : [hx + 5, hy + 6 + Math.sin(r.t * 9) * 2];
         paw = [paw[0] + (p2[0] - paw[0]) * r.paw, paw[1] + (p2[1] - paw[1]) * r.paw];
+      }
+      let arm = null;
+      if (r.wave > 0.01) { // a little wave beside its face, with the arm up to it
+        const w2 = [hx + 15 + Math.sin(r.t * 10) * 3, hy - 10 - Math.abs(Math.cos(r.t * 10)) * 1.5]; // up and out beside the face, side to side
+        paw = [paw[0] + (w2[0] - paw[0]) * r.wave, paw[1] + (w2[1] - paw[1]) * r.wave];
+        const sh = rot(12, -16), mx = (sh[0] + paw[0]) / 2, my = (sh[1] + paw[1]) / 2;
+        arm = ['e', mx, my, Math.hypot(paw[0] - sh[0], paw[1] - sh[1]) / 2 + 1.5, 3.2, Math.atan2(paw[1] - sh[1], paw[0] - sh[0])];
       }
       const baseFar = [hx - 6, hy - 8], baseNear = [hx - 3, hy - 9];
       const front = r.toCam > 0.5; // head turned to the room
+      const farFront = r.mode === 'rest' && r.act === 'earGroom' && !r.earSide; // cleaning the far ear: it's pulled round in front of the face
       silhouette(front ? [
         ['e', backFoot, -2 - air * 2, 9 + f * 2 + air * 2, 3.4, air * 0.25],
         ['c', -22 - f * 4, -17 + f * 7, 5.5],
         ['c', -8 - f * 2, -14 + f * 5, 12.5 - f * 1.5],
         ['e', body[0], body[1], 18 + f * 5 + st * 3 + air * 2, 13 - f * 3 + breath - air, ang],
+        ...(arm ? [arm] : []),
         ['e', paw[0], paw[1], 4.5, 3],
         ...frontHeadShapes(hx - 3, hy - 1),
       ] : [
         ['e', backFoot, -2 - air * 2, 9 + f * 2 + air * 2, 3.4, air * 0.25],
         ['c', -22 - f * 4, -17 + f * 7, 5.5],
-        ear(baseFar, r.earA + ang),
+        ...(farFront ? [] : [ear(baseFar, r.earA + ang)]),
         ['c', -8 - f * 2, -14 + f * 5, 12.5 - f * 1.5],
         ['e', body[0], body[1], 18 + f * 5 + st * 3 + air * 2, 13 - f * 3 + breath - air, ang],
         ['e', paw[0], paw[1], 4.5, 3],
         ['c', hx, hy, 10.5],
         ear(baseNear, r.earB + ang),
-      ], front ? [5, 6] : [2, 7]); // which shapes are ears (for ear colour)
+      ], front ? (arm ? [6, 7] : [5, 6]) : farFront ? [6] : [2, 7]); // which shapes are ears (for ear colour)
+      if (farFront) { // the far ear held over the face: its own outline and the back of the ear a touch shaded
+        const e = ear(baseFar, r.earA + ang);
+        g.lineWidth = 2.6; g.strokeStyle = 'rgba(40, 20, 70, .55)'; shape(e); g.stroke();
+        g.fillStyle = look.ears || look.fur; shape(e); g.fill();
+        g.fillStyle = look.shade; shape(e); g.fill();
+      }
       if (look.spot) { g.fillStyle = look.spot; g.beginPath(); g.ellipse(-6 - f * 2, -20 + f * 6, 8, 5, -0.2, 0, TAU); g.fill(); }
       g.fillStyle = look.shade;
       g.beginPath(); g.ellipse(-6 - f * 2, -8 + f * 4, 12, 6 - f * 2, 0, 0, TAU); g.fill();
@@ -1077,20 +1235,26 @@ window.mountRabbit = (box, opt = {}) => {
   function stepWorld(dt) {
     T += dt;
     for (const k in worldCool) worldCool[k] -= dt;
-    if (F.grass && grassGrow < 1) grassGrow = Math.min(1, grassGrow + dt / 150);
-    for (let i = flowers.length - 1; i >= 0; i--) { flowers[i].age += dt; if (flowerState(flowers[i]).dead) flowers.splice(i, 1); }
-    if (F.flowers && flowers.length < maxFlowers() && Math.random() < dt / 6) sproutFlower();
-    // carrots ripen over about 50 s; a new one is planted every 20–35 s while there's room
-    for (const c of planted) c.ripe = Math.min(1, c.ripe + dt / 50);
-    if (F.growCarrots && planted.length < maxCarrots() && worldCool.plant <= 0) { plantCarrot(); worldCool.plant = rand(20, 35); }
+    const gt = F.grass ? grassTarget : 0; // grows about a fifth of the meadow a minute, shrinks back if stepped back
+    grassAmt = gt > grassAmt ? Math.min(gt, grassAmt + dt * (0.0035 + rain * 0.006)) : Math.max(gt, grassAmt - dt / 60);
+    rain = ease(rain, rainTarget, 0.25, dt);
+    wet = rain > wet ? Math.min(1, wet + rain * dt / 20) : Math.max(0, wet - dt / 150); // soaks in during rain, dries over a few minutes
+    const lush = 1 + wet * 2; // growing speed
+    stepRain(dt);
+    stepFireflies(dt);
+    for (let i = flowers.length - 1; i >= 0; i--) { const f = flowers[i]; f.age += f.age < f.growDur ? dt * lush : dt; if (flowerState(f).dead) flowers.splice(i, 1); } // only the growing part speeds up
+    if (F.flowers && flowers.length < maxFlowers() && Math.random() < (dt / 6) * lush) sproutFlower();
+    // carrots ripen over about 38 s; a new one is planted every 16–28 s while there's room
+    for (const c of planted) c.ripe = Math.min(1, c.ripe + (dt / 38) * lush);
+    if (F.growCarrots && planted.length < maxCarrots() && worldCool.plant <= 0) { plantCarrot(); worldCool.plant = rand(16, 28) / lush; }
     // insects come for the flowers (a lone butterfly sometimes passes even without any)
     const blooms = flowers.filter(blooming).length;
     const flies = bugs.filter(b => b.type === 'fly').length, bees = bugs.length - flies;
     // going away: the insects fly off (the rabbits go at their next decision, see decide())
     if (!wantOut && !tune.ambient) for (const b of bugs) b.state = 'leave';
     if (main.gone && tune.ambient) { // nobody home in the quiet stretch: now and then a butterfly or a bee drifts through
-      if (worldCool.bug <= 0) { if (!bugs.length && chance(0.3)) spawnBug(chance(0.3) ? 'bee' : 'fly'); worldCool.bug = rand(15, 30); }
-    } else if (wantOut && worldCool.bug <= 0 && !main.gone) {
+      if (worldCool.bug <= 0 && rain < 0.15) { if (!bugs.length && chance(0.3)) spawnBug(chance(0.3) ? 'bee' : 'fly'); worldCool.bug = rand(15, 30); }
+    } else if (wantOut && worldCool.bug <= 0 && !main.gone && rain < 0.15) {
       if (flies < Math.min(tune.flies, 1 + Math.floor(blooms / 2)) && Math.random() < (blooms ? Math.max(0.45, tune.flyChance) : tune.flyChance)) spawnBug('fly');
       else if (F.bees && blooms && bees < tune.bees && chance(0.3)) spawnBug('bee');
       worldCool.bug = rand(4, 9);
@@ -1101,6 +1265,45 @@ window.mountRabbit = (box, opt = {}) => {
     if (friend?.gone) { friend = null; main.r.greeted = false; worldCool.friend = rand(...tune.friendEvery); }
     for (const z of zs) { z.t += dt; z.y -= 14 * S * dt; z.x += Math.sin(z.t * 2 + z.p) * 6 * S * dt; }
     while (zs.length && zs[0].t > 2.4) zs.shift();
+  }
+  function stepRain(dt) {
+    const want = Math.round(rain * rain * W / (2.6 * S) + rain * W / (12 * S)); // drops in the air: a drizzle is sparse, a downpour dense
+    for (let i = drops.length; i < want; i++) {
+      drops.push({ x: rand(0, W * 1.1), y: rand(-H, 0), len: rand(10, 20) * S * (0.7 + rain * 0.6), v: rand(700, 950) * S * (0.8 + rain * 0.4), w: rand(0.7, 1.2) });
+    }
+    const ground = soil();
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.y += d.v * dt; d.x -= d.v * 0.22 * dt;
+      if (d.y >= ground - rand(0, 4) * S) {
+        if (chance(0.5)) splashes.push({ x: d.x, y: ground + rand(-1, 3) * S, t: 0 });
+        if (drops.length > want) drops.splice(i, 1); else { d.y = rand(-60, 0) * S; d.x = rand(0, W * 1.1); }
+      }
+    }
+    for (const sp of splashes) sp.t += dt;
+    while (splashes.length && splashes[0].t > 0.35) splashes.shift();
+    for (const p of sprays) { p.t += dt; p.vy += 900 * S * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+    while (sprays.length && sprays[0].t > 0.7) sprays.shift();
+  }
+  function stepFireflies(dt) {
+    const want = F.fireflies ? Math.min(tune.fireflies || 8, Math.round(W / (180 * S))) : 0;
+    if (fireflies.length < want && chance(dt * 0.5)) {
+      fireflies.push({ x: rand(0.1, 0.9) * W, y: soil() - rand(20, 140) * S, vx: 0, vy: 0, on: 0, onT: 0, offIn: rand(0.5, 3), ph: rand(0, TAU) });
+    }
+    for (let i = fireflies.length - 1; i >= 0; i--) {
+      const f = fireflies[i];
+      f.ph += dt;
+      f.vx += (Math.sin(f.ph * 0.7) * 14 + rand(-8, 8)) * S * dt; f.vy += (Math.cos(f.ph * 0.9) * 9 + rand(-6, 6)) * S * dt;
+      f.vx *= Math.pow(0.4, dt); f.vy *= Math.pow(0.4, dt);
+      f.x += f.vx * dt; f.y += f.vy * dt;
+      const top = soil() - 170 * S, bottom = soil() - 12 * S;
+      if (f.y < top) f.vy += 30 * S * dt; if (f.y > bottom) f.vy -= 30 * S * dt;
+      if (f.x < 20 * S || f.x > W - 20 * S) f.vx -= Math.sign(f.x - W / 2) * 30 * S * dt;
+      // a slow glow: on for a second or two, dark for a while
+      if (f.onT > 0) { f.onT -= dt; f.on = Math.min(1, f.on + dt * 3); } else { f.on = Math.max(0, f.on - dt * 1.6); if ((f.offIn -= dt) < 0) { f.onT = rand(0.8, 2); f.offIn = rand(1.5, 4); } }
+      if (!F.fireflies && f.on <= 0) fireflies.splice(i, 1);
+      if (rain > 0.3 && f.on <= 0) fireflies.splice(i, 1);
+    }
   }
   function step(dt) {
     stepWorld(dt);
@@ -1115,6 +1318,8 @@ window.mountRabbit = (box, opt = {}) => {
     for (const f of flowers) drawFlower(f);
     for (const c of planted) drawPlanted(c);
     for (const c of lying) drawCarrot(c.x, groundY(0.6) - 4 * S, c.tilt, c.len, S);
+    const perched = b => b.state === 'sip' && (b.type === 'fly' || b.parked); // on a flower: behind the rabbits, like the flower
+    for (const b of bugs) if (perched(b)) (b.type === 'bee' ? drawBee : drawButterfly)(b);
     for (const b of [main, friend].filter(b => b && !b.gone).sort((a, b) => a.r.d - b.r.d)) b.draw(); // back rabbit first
     drawGrass(true); // a few blades in front, so the rabbits sit in the grass
     if (zs.length) { // z's over a sleeping rabbit
@@ -1126,7 +1331,10 @@ window.mountRabbit = (box, opt = {}) => {
       }
       g.restore();
     }
-    for (const b of bugs) (b.type === 'bee' ? drawBee : drawButterfly)(b);
+    for (const b of bugs) if (!perched(b)) (b.type === 'bee' ? drawBee : drawButterfly)(b);
+    for (const f of fireflies) drawFirefly(f);
+    drawSprays();
+    drawRain();
   }
 
   main = Bunny(LOOKS.jade, 0.6);
@@ -1173,7 +1381,7 @@ window.mountRabbit = (box, opt = {}) => {
       if (!bugs.length) { fleeing = false; running = false; render(); return; }
     } else step(dt);
     render();
-    if (!wantOut && main.gone && !friend && !bugs.length && !tune.ambient) { running = false; return; } // all gone: the ground rests
+    if (!wantOut && main.gone && !friend && !bugs.length && !tune.ambient && rain < 0.01 && !drops.length && !fireflies.length) { running = false; return; } // all gone: the ground rests
     requestAnimationFrame(frame);
   }
   let entered = false;
@@ -1246,11 +1454,11 @@ window.mountRabbit = (box, opt = {}) => {
 
   // the slideshow's phases switch parts on and turn things up through this
   function configure({ features = {}, tune: t = {} } = {}) {
-    if (features.grass && !F.grass) grassGrow = 0;
+
     const friendWasOn = tune.friend;
     Object.assign(F, features);
     Object.assign(tune, t);
-    if (!F.grass) grassGrow = 0;
+
     if (!F.flowers) flowers.length = 0;
     if (!F.growCarrots) planted.length = 0;
     if (!F.bees) for (const b of bugs) if (b.type === 'bee') b.state = 'leave';
@@ -1263,6 +1471,9 @@ window.mountRabbit = (box, opt = {}) => {
   // a handle for poking at the meadow from the console
   return {
     configure, show, features: F, tune, bugs, flowers, planted,
+    // the slideshow's clock sets these every second: rain 0…1 and how much of the meadow is grass
+    weather({ rain: rn = 0, grass: gr = 0, snap = false } = {}) { rainTarget = rn; grassTarget = gr; if (snap) grassAmt = F.grass ? gr : 0; if ((rn > 0.01 || rain > 0.01) && entered) start(); },
+    get rain() { return rain; }, get grass() { return grassAmt; }, get wet() { return wet; },
     get out() { return wantOut; }, get present() { return entered && !main.gone; },
     get r() { return main.r; }, get main() { return main; }, get friend() { return friend; },
     force(what) {

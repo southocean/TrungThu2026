@@ -279,15 +279,25 @@
     { at: '14:15', name: 'A friend visits', tune: { friend: true } },
     { at: '14:25', name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 }, stage: { on: [120, 150], off: [60, 80] } },
     // 14:30–15:30 quiet stretch: see QUIET
-    { at: '15:30', name: 'Grass grows in', features: { grass: true }, stage: { on: [120, 180], off: [60, 90] } },
+    { at: '15:30', name: 'Grass grows in', features: { grass: true }, grass: 0.25, stage: { on: [120, 180], off: [60, 90] } },
     { at: '15:40', name: 'Carrots grow in the ground', features: { growCarrots: true }, stage: { on: [180, 240], off: [40, 60] } },
     { at: '15:50', name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] }, stage: { on: [240, 300], off: [30, 45] } },
     { at: '16:00', name: 'First flowers', features: { flowers: true } },
     { at: '16:10', name: 'More flowers', tune: { flowers: 4, carrots: 2 }, stage: 'always' },
     { at: '16:20', name: 'A bee', features: { bees: true } },
     { at: '16:40', name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
+    { at: '17:00', name: 'Fireflies', features: { fireflies: true }, tune: { fireflies: 8 } },
   ];
   // No milestones here; the rabbit drops back to a rare visit and insects pass by while it's away.
+  // Rain: drizzle, rain, a downpour. Each one grows the grass a step (`grass`), so by the end of the
+  // heavy rain the meadow is full. Grass follows the clock, so it's right even if a rain wasn't seen.
+  const RAINS = [
+    { at: '15:36', secs: 50, level: 0.25, name: 'Drizzle', grass: 0.12 },
+    { at: '15:54', secs: 70, level: 0.55, name: 'Rain', grass: 0.2 },
+    { at: '16:06', secs: 50, level: 0.25, name: 'Drizzle', grass: 0.12 },
+    { at: '16:28', secs: 90, level: 1, name: 'Heavy rain', grass: 0.31 },
+    { at: '16:52', secs: 45, level: 0.25, name: 'Drizzle', grass: 0 },
+  ];
   const QUIET = [{ from: '14:30', to: '15:30', why: 'speeches, games, Kahoot', stage: { on: [60, 90], off: [480, 600] } }];
   const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
   const fmt = min => { const m = Math.floor(((min % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
@@ -323,12 +333,22 @@
 
   let phaseKey = '';
   const phaseAt = min => PHASES.reduce((k, p, i) => (min >= p.min ? i : k), 0);
+  RAINS.forEach(x => { x.min = toMin(x.at); });
+  let forcedRain = 0; // admin: a spawned rain lasts until this time (performance.now ms)
+  function weatherNow() {
+    const min = clock().min, idx = phaseAt(min);
+    const now = RAINS.find(x => min >= x.min && min < x.min + x.secs / 60);
+    let grass = PHASES.slice(0, idx + 1).reduce((v, p) => (p.grass != null ? p.grass : v), 0);
+    if (grass > 0) for (const x of RAINS) grass += x.grass * Math.min(1, Math.max(0, (min - x.min) / (x.secs / 60)));
+    const rain = performance.now() < forcedRain ? 0.55 : now ? now.level : 0;
+    return { rain, grass: Math.min(1, grass) };
+  }
   const quietAt = min => QUIET.find(q => min >= q.fromMin && min < q.toMin) || null;
   function applyPhase() {
     const min = clock().min, idx = phaseAt(min), quiet = quietAt(min), key = `${idx}${quiet ? 'q' : ''}`;
     if (key === phaseKey || !window.slideRabbit) return;
     phaseKey = key;
-    const features = { grass: false, flowers: false, growCarrots: false, bees: false }, tune = {};
+    const features = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false }, tune = {};
     for (const p of PHASES.slice(0, idx + 1)) { Object.assign(features, p.features); Object.assign(tune, p.tune); }
     tune.ambient = !!quiet;
     slideRabbit.configure({ features, tune });
@@ -344,6 +364,7 @@
     lastTick = now;
     applyPhase();
     stageTick(dt);
+    window.slideRabbit?.weather(weatherNow());
     if (!hud.hidden) showHud();
   }, 1000);
 
@@ -356,17 +377,20 @@
     state() {
       const c = clock(), idx = phaseAt(c.min), q = quietAt(c.min);
       const item = agendaMins.reduce((k, a) => (c.min >= a.min ? a : k), null);
-      return { ...c, time: fmt(c.min), idx, phase: PHASES[idx].name, next: PHASES[idx + 1] || null, quiet: q || null, programme: item?.title || 'Before the start' };
+      const w = weatherNow(), rn = RAINS.find(x => c.min >= x.min && c.min < x.min + x.secs / 60);
+      return { ...c, time: fmt(c.min), idx, phase: PHASES[idx].name, next: PHASES[idx + 1] || null, quiet: q || null, programme: item?.title || 'Before the start',
+        rain: w.rain ? (rn ? rn.name : 'Rain (spawned)') : null, grass: Math.round(w.grass * 100) };
     },
-    setClock(min) { sim = { min, speed: sim?.speed || 1 }; saveSim(); applyPhase(); },
+    setClock(min) { sim = { min, speed: sim?.speed || 1 }; saveSim(); applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); }, // a jump shows that time's grass at once
     step(dir) { // to the next or previous milestone
       const min = clock().min, idx = phaseAt(min);
       const to = dir > 0 ? PHASES[idx + 1] : (min - PHASES[idx].min > 0.5 ? PHASES[idx] : PHASES[idx - 1]);
       if (to) this.setClock(to.min);
     },
     setSpeed(speed) { sim = { min: clock().min, speed }; saveSim(); },
-    live() { sim = null; saveSim(); applyPhase(); },
-    force: what => window.slideRabbit?.force(what),
+    live() { sim = null; saveSim(); applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); },
+    rains: RAINS.map(({ at, min, secs, name, grass }) => ({ at, min, secs, name, grass })),
+    force: what => (what === 'rain' ? (forcedRain = performance.now() + 40000, window.slideRabbit?.weather(weatherNow())) : window.slideRabbit?.force(what)),
     rabbit() {
       const plan = planNow();
       return { on: rabbitOn, seen: seen.size, of: N, out, nextIn: turnAt ? Math.max(0, (turnAt - performance.now()) / 1000) : null,

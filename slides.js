@@ -259,31 +259,66 @@
   });
 
   // ── Meadow phases ──
-  // The scene grows with total play time (only time spent playing counts, across pauses and
-  // page reloads on the same day), so the slides stay readable at first and fresh later.
+  // The scene grows on the event's clock, so it fits the programme: milestones land while the
+  // slideshow is up and people are mingling, never in the quiet stretch when the room watches
+  // the stage or the projector is taken for Kahoot. On the day (24/10, Stockholm time) the
+  // clock is the real time, so pauses, reloads and other screens all agree. Any other day it
+  // is play time counted from 14:00 (only time spent playing counts, kept per day).
   // Specs and reasoning: docs/meadow-plan.html. Each row applies on top of the ones before it.
+  const EVENT_DAY = '2026-10-24', TZ = 'Europe/Stockholm', START = 14 * 60;
   const PHASES = [
-    { at: 0, name: 'Just the rabbit', features: {}, tune: { flies: 0, binky: false } },
-    { at: 10, name: 'A butterfly', tune: { flies: 1, flyChance: 0.06, binky: true } },
-    { at: 15, name: 'A friend visits', tune: { friend: true, friendEvery: [540, 720], friendStay: [60, 100] } },
-    { at: 25, name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 } },
-    { at: 40, name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] } },
-    { at: 60, name: 'Grass grows in', features: { grass: true } },
-    { at: 70, name: 'Carrots grow in the ground', features: { growCarrots: true }, tune: { carrots: 1 } },
-    { at: 80, name: 'First flowers', features: { flowers: true }, tune: { flowers: 2 } },
-    { at: 88, name: 'More flowers', tune: { flowers: 4, carrots: 2 } },
-    { at: 95, name: 'A bee', features: { bees: true }, tune: { bees: 1 } },
-    { at: 110, name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
+    { at: '14:00', name: 'Just the rabbit', features: {}, tune: { // full baseline, so stepping back undoes later rows
+      flies: 0, flyChance: 0.06, binky: false, flowers: 2, bees: 1, carrots: 1,
+      friend: false, share: false, friendEvery: [540, 720], friendStay: [60, 100] } },
+    { at: '14:10', name: 'A butterfly', tune: { flies: 1, binky: true } },
+    { at: '14:15', name: 'A friend visits', tune: { friend: true } },
+    { at: '14:25', name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 } },
+    // 14:30–15:30 quiet: opening, games and performances, Kahoot
+    { at: '15:30', name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] } },
+    { at: '15:40', name: 'Grass grows in', features: { grass: true } },
+    { at: '15:50', name: 'Carrots grow in the ground', features: { growCarrots: true } },
+    { at: '16:00', name: 'First flowers', features: { flowers: true } },
+    { at: '16:10', name: 'More flowers', tune: { flowers: 4, carrots: 2 } },
+    { at: '16:20', name: 'A bee', features: { bees: true } },
+    { at: '16:40', name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
   ];
-  const clockKey = `tt-playtime-${new Date().toISOString().slice(0, 10)}`;
+  const QUIET = [{ from: '14:30', to: '15:30', why: 'speeches, games, Kahoot' }];
+  const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+  const fmt = min => { const m = Math.floor(((min % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+  PHASES.forEach(p => { p.min = toMin(p.at); });
+  QUIET.forEach(q => { q.fromMin = toMin(q.from); q.toMin = toMin(q.to); });
+  const agendaMins = TT.agenda.map(a => ({ min: toMin(a.time), title: a.title.vi }));
+
+  const stockholm = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  function wallClock() {
+    const p = Object.fromEntries(stockholm.formatToParts(new Date()).map(x => [x.type, x.value]));
+    return { day: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) + Number(p.second) / 60 };
+  }
+
+  const clockKey = `tt-playtime-${wallClock().day}`;
   let playMs = 0;
   try { playMs = Number(localStorage.getItem(clockKey)) || 0; } catch {}
-  const startParam = new URLSearchParams(location.search).get('playtime');
-  if (startParam !== null && Number.isFinite(Number(startParam))) playMs = Number(startParam) * 60000; // QA: ?playtime=60 starts at minute 60, ?playtime=0 resets
+
+  // Admin can run a simulated clock (any time, any speed). It lives in sessionStorage so the
+  // home page's dev panel and this slideshow share it, and a reload keeps it.
+  const isAdmin = () => { try { return sessionStorage.getItem('tt_admin') === '1'; } catch { return false; } };
+  let sim = null; // { min, speed }
+  try { sim = JSON.parse(sessionStorage.getItem('tt-sim')) || null; } catch {}
+  const clockParam = new URLSearchParams(location.search).get('clock'); // QA: slides.html?clock=15:40
+  if (clockParam && /^\d{1,2}:\d{2}$/.test(clockParam)) sim = { min: toMin(clockParam), speed: 1 };
+  const saveSim = () => { try { sim ? sessionStorage.setItem('tt-sim', JSON.stringify(sim)) : sessionStorage.removeItem('tt-sim'); } catch {} };
+
+  function clock() {
+    if (sim) return { min: sim.min, source: 'sim', speed: sim.speed };
+    const w = wallClock();
+    if (w.day === EVENT_DAY) return { min: w.min, source: 'live', speed: 1 };
+    return { min: START + playMs / 60000, source: 'play', speed: 1 };
+  }
+
   let phaseIdx = -1;
+  const phaseAt = min => PHASES.reduce((k, p, i) => (min >= p.min ? i : k), 0);
   function applyPhase() {
-    const min = playMs / 60000;
-    const idx = PHASES.reduce((k, p, i) => (min >= p.at ? i : k), 0);
+    const idx = phaseAt(clock().min);
     if (idx === phaseIdx || !window.slideRabbit) return;
     phaseIdx = idx;
     const features = { grass: false, flowers: false, growCarrots: false, bees: false }, tune = {};
@@ -292,34 +327,51 @@
   }
   let lastTick = performance.now(), saveIn = 0;
   setInterval(() => {
-    const now = performance.now();
+    const now = performance.now(), dt = now - lastTick;
     if (playing) {
-      playMs += now - lastTick;
+      playMs += dt;
       if ((saveIn -= 1) <= 0) { saveIn = 5; try { localStorage.setItem(clockKey, String(Math.round(playMs))); } catch {} }
     }
+    if (sim) { sim.min += (dt / 60000) * sim.speed; saveSim(); }
     lastTick = now;
     applyPhase();
     if (!hud.hidden) showHud();
   }, 1000);
 
-  // QA: T shows play time and the phase, [ and ] step back or forward 5 minutes.
+  // What the dev tools read and drive (the home page's admin panel, and T [ ] here).
+  const meadow = {
+    phases: PHASES.map(({ at, min, name }) => ({ at, min, name })),
+    quiet: QUIET.map(q => ({ ...q })),
+    fmt,
+    state() {
+      const c = clock(), idx = phaseAt(c.min), q = QUIET.find(x => c.min >= x.fromMin && c.min < x.toMin);
+      const item = agendaMins.reduce((k, a) => (c.min >= a.min ? a : k), null);
+      return { ...c, time: fmt(c.min), idx, phase: PHASES[idx].name, next: PHASES[idx + 1] || null, quiet: q || null, programme: item?.title || 'Before the start' };
+    },
+    setClock(min) { sim = { min, speed: sim?.speed || 1 }; saveSim(); applyPhase(); },
+    step(dir) { // to the next or previous milestone
+      const min = clock().min, idx = phaseAt(min);
+      const to = dir > 0 ? PHASES[idx + 1] : (min - PHASES[idx].min > 0.5 ? PHASES[idx] : PHASES[idx - 1]);
+      if (to) this.setClock(to.min);
+    },
+    setSpeed(speed) { sim = { min: clock().min, speed }; saveSim(); },
+    live() { sim = null; saveSim(); applyPhase(); },
+    force: what => window.slideRabbit?.force(what),
+  };
+
+  // Admin only: T shows the event clock and phase, [ and ] step between milestones.
   const hud = document.createElement('p');
   hud.className = 'meadow-hud'; hud.hidden = true;
   document.body.append(hud);
   function showHud() {
-    const min = playMs / 60000, cur = PHASES[Math.max(0, phaseIdx)], next = PHASES[phaseIdx + 1];
-    const mm = Math.floor(min), ss = String(Math.floor((playMs / 1000) % 60)).padStart(2, '0');
-    hud.textContent = `Play time ${mm}:${ss} · ${cur.name}` + (next ? ` · next at ${next.at} min: ${next.name}` : '');
-  }
-  function shiftPlay(min) {
-    playMs = Math.max(0, playMs + min * 60000);
-    try { localStorage.setItem(clockKey, String(Math.round(playMs))); } catch {}
-    applyPhase(); hud.hidden = false; showHud();
+    const s = meadow.state(), src = { live: 'live', play: 'play time', sim: `simulated ×${s.speed}` }[s.source];
+    hud.textContent = `${s.time} (${src}) · ${s.phase}` + (s.next ? ` · next ${s.next.at}: ${s.next.name}` : '') + (s.quiet ? ' · quiet' : '');
   }
   applyPhase();
 
   // The home page puts this embed into fullscreen from its own buttons and tells us so.
   window.TTslides = {
+    meadow,
     setFull(on) { fullFromParent = on; syncFs(); },
     fullscreenStart() { this.setFull(true); if (!reduced) { if (playing) music.sync(true); else setPlay(true); } },
   };
@@ -366,6 +418,15 @@
     addEventListener('pointerdown', e => { if (!wrap.contains(e.target)) close(0); });
   }
 
+  // The Konami code unlocks admin here too (same lock as the home page).
+  const KONAMI = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+  let ki = 0;
+  addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k === KONAMI[ki]) { if (++ki === KONAMI.length) { ki = 0; try { sessionStorage.setItem('tt_admin', '1'); } catch {} hud.hidden = false; showHud(); } }
+    else ki = k === KONAMI[0] ? 1 : 0;
+  }, true);
+
   addEventListener('keydown', e => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.target.id === 'volume' && /^(Arrow|Page|Home|End)/.test(e.key)) return; // the slider's own keys
@@ -380,9 +441,9 @@
     else if (k === 'p' || k === 'P') togglePlay();
     else if (k === 'm' || k === 'M') music.toggle();
     else if (k === 'l' || k === 'L') I18N.set(I18N.next());
-    else if (k === 't' || k === 'T') { hud.hidden = !hud.hidden; showHud(); }
-    else if (k === ']') shiftPlay(5);
-    else if (k === '[') shiftPlay(-5);
+    else if ((k === 't' || k === 'T') && isAdmin()) { hud.hidden = !hud.hidden; showHud(); }
+    else if (k === ']' && isAdmin()) { meadow.step(1); hud.hidden = false; showHud(); }
+    else if (k === '[' && isAdmin()) { meadow.step(-1); hud.hidden = false; showHud(); }
     else if (/^[1-9]$/.test(k)) go(Number(k) - 1);
     else return;
     wake();

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=Playfair+Display:wght@900&display=swap">
   <link rel="stylesheet" href="base.css?v=10">
-  <link rel="stylesheet" href="site.css?v=14">
+  <link rel="stylesheet" href="site.css?v=15">
 </head>
 <body>
   <a class="skip" href="#chuong-trinh" data-i18n="skip">Bỏ qua đến chương trình</a>
@@ -70,8 +70,11 @@
         <h2 id="ss-title" data-i18n="nav-slides">Slideshow</h2>
         <a class="btn btn-gold btn-sm" href="slides.html" data-fullscreen data-i18n="fullscreen">Mở toàn màn hình</a>
       </div>
-      <div class="embed">
-        <iframe title="Slideshow Trung Thu 2026" allow="fullscreen" allowfullscreen loading="lazy"></iframe>
+      <div class="ss-grid">
+        <div class="embed">
+          <iframe title="Slideshow Trung Thu 2026" allow="fullscreen" allowfullscreen loading="lazy"></iframe>
+        </div>
+        <aside class="devtools" id="devtools" aria-label="Dev tools" hidden></aside>
       </div>
     </section>
 
@@ -115,12 +118,27 @@
     </ul>
   </footer>
 
+  <dialog id="gate" lang="en">
+    <form method="dialog" id="gate-form">
+      <p class="gate-kicker">Restricted · admin only</p>
+      <h2>Security question</h2>
+      <p id="gate-q"></p>
+      <input id="gate-a" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Answer" aria-labelledby="gate-q">
+      <p id="gate-msg" class="gate-msg" aria-live="polite"></p>
+      <div class="gate-row">
+        <button type="button" class="btn btn-glass btn-sm" id="gate-leave">Leave</button>
+        <button class="btn btn-gold btn-sm" id="gate-go" value="default">Enter</button>
+      </div>
+    </form>
+  </dialog>
+
   <canvas class="lanterns lanterns-back" aria-hidden="true"></canvas>
   <canvas class="lanterns lanterns-front" aria-hidden="true"></canvas>
 
   <script src="i18n.js?v=14"></script>
   <script src="data.js?v=10"></script>
   <script src="site.js?v=13"></script>
+  <script src="admin.js?v=1"></script>
   <script src="lanterns.js?v=10"></script>
   <script src="rabbit.js?v=24"></script>
 </body>

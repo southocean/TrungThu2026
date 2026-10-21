@@ -12,11 +12,11 @@
   const REPO = 'southocean/TrungThu2026';
 
   // ── tabs ──────────────────────────────────────────────
-  const TABS = [['eco', 'The ecosystem'], ['time', 'The timeline'], ['design', 'The design'], ['repo', 'The repo']];
+  const TABS = [['eco', 'The ecosystem'], ['time', 'The timeline'], ['design', 'The creatures'], ['repo', 'The repo']];
   let tab = 'eco', tick = null;
   dlg.innerHTML = `
     <div class="how-head">
-      <div><p class="how-kicker">Admin · private</p><h2 id="how-title">How it works</h2></div>
+      <div><p class="how-kicker">Admin · how it all works</p><h2 id="how-title">Log</h2></div>
       <button type="button" class="how-x" id="how-close" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
     </div>
     <div class="how-tabs" role="tablist" aria-label="How it works">
@@ -144,18 +144,18 @@
     const chips = [
       ['Clock', `${s.time} · ${{ live: 'live, Stockholm', play: 'play time', sim: `simulated ${s.speed}×` }[s.source]}`],
       ['Phase', s.phase + (s.quiet ? ' · quiet stretch' : '')],
-      ['Jade rabbit', !rb.on ? 'switched off' : rb.seen < rb.of ? `waiting for the first loop (${rb.seen}/${rb.of})` : rabbitState(w.main, w.present)],
+      ['Jade rabbit', !rb.on ? 'switched off' : rb.seen < rb.of ? `waiting, ${rb.seen}/${rb.of} slides seen` : rabbitState(w.main, w.present)],
       ['Friend', w.friend ? `${rabbitState(w.friend, true)} · ${w.tune.resident ? 'resident' : 'visiting'}` : w.tune.friend ? 'not here' : 'not yet (from 14:15)'],
       ['Butterflies', flies.length ? fmtCount(count(flies, b => (b.state === 'sip' ? 'perched' : b.state === 'leave' ? 'leaving' : 'flying'))) : 'none'],
       ['Bees', bees.length ? fmtCount(count(bees, b => (b.parked ? 'parked' : b.state === 'leave' ? 'leaving' : 'buzzing'))) : w.features.bees ? 'none right now' : 'not yet (16:20)'],
       ['Flowers', w.features.flowers ? fmtCount(count(w.flowers, flowerStage)) : 'not yet (16:00)'],
-      ['Carrots', w.features.growCarrots ? fmtCount(count(w.planted, c => (c.ripe >= 1 ? 'ripe' : 'growing'))) : 'dug on the spot (until 15:40)'],
+      ['Carrots', w.features.growCarrots ? fmtCount(count(w.planted, c => (c.ripe >= 1 ? 'ripe' : 'growing'))) : 'dug on the spot'],
       ['Grass', `${Math.round(w.grass * 100)}%`],
       ['Rain', w.rain > 0.02 ? `${Math.round(w.rain * 100)}% · ${s.rain || ''}` : 'dry'],
-      ['Ground', w.wet > 0.02 ? `wet ${Math.round(w.wet * 100)}% (growing faster)` : 'dry'],
+      ['Ground', w.wet > 0.02 ? `wet ${Math.round(w.wet * 100)}%, lush` : 'dry'],
       ['Fireflies', w.features.fireflies ? `${w.fireflies.length} (${w.fireflies.filter(f => f.on > 0.3).length} glowing)` : 'not yet (17:00)'],
     ];
-    el.innerHTML = chips.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+    el.innerHTML = chips.map(([k, v]) => `<div title="${esc(k)}: ${esc(v)}"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join(''); // one line each; the full text is in the tooltip
   }
 
   // ── The timeline ──────────────────────────────────────
@@ -224,35 +224,102 @@
     t.setAttribute('x', x + 4); t.textContent = s.time;
   }
 
-  // ── The design ────────────────────────────────────────
-  const sw = (c, label) => `<span class="how-sw"><i style="background:${c}"></i>${esc(label)}<code>${esc(c)}</code></span>`;
+  // ── The creatures ─────────────────────────────────────
+  // Every tile is drawn by rabbit.js itself: a still mount of the meadow, posed, run for a moment so
+  // the easing settles, then drawn once. No loop runs, so the gallery costs nothing after it opens.
+  const flowerOf = (kind, x, h, age) => {
+    const k = { daisy: ['#fffaf0', '#ffd34d'], pink: ['#ffc2d4', '#ffd34d'], star: ['#ffd34d', '#ff8a2a'], tulip: ['#ff5a6e', '#ff9dbb'], bell: ['#b48cff', '#e0ccff'] }[kind];
+    return { x, kind: kind === 'pink' ? 'daisy' : kind, colors: k, h, lean: 0, age, growDur: 15, bloomDur: 60, wiltDur: 8 };
+  };
+  const BLOOM = 15 + 20;
+  // a rabbit tile: centre it, put it in a mode, let it settle
+  const pose = (mode, setup, secs = 1) => (h) => {
+    const r = h.r; r.x = h.W / 2; r.y = h.groundY(r.d); r.face = 1;
+    r.mode = mode; r.t = 0; r.until = 999; r.act = null; r.actT = 999;
+    setup?.(h, r);
+    return secs;
+  };
+  const act = (a, more) => pose('rest', (h, r) => {
+    r.act = a;
+    if (a === 'audience') { r.feT = [-0.16, 0.16]; r.fe = [-0.16, 0.16]; r.feIn = 999; r.lookTX = r.lookTY = 0; }
+    more?.(h, r);
+  }, 1.2);
+  const hold = (h, b, x, y, extra) => () => { b.state = extra?.state || 'wander'; b.t = 0; b.wanderFor = 99; b.wx = b.x = x; b.wy = b.y = y; b.life = 999; extra?.each?.(); };
+  const fly = (h, x, y, o = {}) => { const b = { type: 'fly', x, y, state: 'wander', t: 0, age: 0, flap: o.flap ?? 1.2, view: o.view || 'top', colors: o.colors || ['#ff9a3c', '#3a1f10', '#ffd9a8'], size: o.size || 1.15, wing: 'round', dir: o.dir || 1, life: 999, ...o }; h.bugs.push(b); return b; };
+  const C = { orange: ['#ff9a3c', '#3a1f10', '#ffd9a8'], blue: ['#7cc6ff', '#1d3d73', '#e6f5ff'], yellow: ['#ffd34d', '#8a5a00', '#fff3c4'], pink: ['#ff9dbb', '#a8335c', '#ffe3ec'], white: ['#fff6e8', '#7a6a9a', '#ffffff'], violet: ['#b48cff', '#3d2470', '#efe5ff'] };
+  const GALLERY = [
+    ['The jade rabbit', 'Its moods and moves. Each pose is the real drawing code, frozen.', [
+      ['Sitting', act(null)],
+      ['Facing the room', act('audience')],
+      ['A wave to the room', act('audience', (h, r) => { r.waving = true; })],
+      ['Grooming its face', act('groom')],
+      ['Cleaning the near ear', act('earGroom', (h, r) => { r.earSide = 1; })],
+      ['Cleaning the far ear', act('earGroom', (h, r) => { r.earSide = 0; })],
+      ['Sniffing', act('sniff')],
+      ['Standing up', act('rear')],
+      ['Loafing', act('loaf')],
+      ['A hop', pose('rest', (h, r) => { r.x -= 20 * h.S; h.main.startHops(1, 1); }, 0.2)],
+      ['A binky', pose('rest', (h, r) => { r.x -= 30 * h.S; h.main.startHops(1, 1, null, 'binky'); }, 0.36)],
+      ['Startled by a bee', pose('rest', (h, r) => { r.x -= 20 * h.S; h.main.startHops(1, 1, null, 'leap'); h.force('bee'); const b = h.bugs.at(-1); h.hold = hold(h, b, r.x - 30 * h.S, r.y - 48 * h.S); }, 0.28)],
+      ['Wary of a bee', act(null, (h, r) => { h.force('bee'); const b = h.bugs.at(-1); h.hold = hold(h, b, r.x + 42 * h.S, r.y - 50 * h.S, { each: () => { h.main.cool.avoid = 99; } }); })],
+      ['Looking up at a butterfly', act(null, (h, r) => { const b = fly(h, 0, 0, { colors: C.blue }); h.hold = hold(h, b, r.x + 22 * h.S, r.y - 70 * h.S); })],
+      ['Chasing a butterfly', act('rear', (h, r) => { const b = fly(h, 0, 0, { colors: C.yellow, view: 'side' }); h.hold = hold(h, b, r.x + 44 * h.S, r.y - 66 * h.S); r.lookTX = 1; r.lookTY = -1; })],
+      ['Digging', pose('rest', (h) => { h.main.force.dig(); }, 0.8)],
+      ['Eating a carrot', pose('rest', (h) => { h.main.force.dig(); }, 3.1)],
+      ['Smelling a flower', pose('smell', (h, r) => { h.flowers.push(flowerOf('tulip', r.x + 34 * h.S, 22 * h.S, BLOOM)); })],
+      ['Asleep', pose('sleep', null, 3)],
+      ['Stretching awake', pose('stretch', (h, r) => { r.until = 1.3; }, 0.65)],
+      ['A sploot', pose('sploot')],
+      ['Sitting out the rain', pose('hunker', (h) => { h.weather({ rain: 0.55 }); }, 3)],
+      ['Shaking off the water', pose('shakeoff', null, 0.32)],
+    ]],
+    ['The friend', 'Cream with brown ears and a back patch, a little smaller. The same brain.', [
+      ['Sitting', act(null), 'friend'],
+      ['Facing the room', act('audience'), 'friend'],
+      ['Cleaning an ear', act('earGroom', (h, r) => { r.earSide = 1; }), 'friend'],
+      ['Asleep', pose('sleep', null, 3), 'friend'],
+    ]],
+    ['Butterflies', 'Seen from above or side-on; perched at the middle of a bloom, a little tilted.', [
+      ['From above, open', h => { fly(h, h.W / 2, 70, { colors: C.orange, flap: 1.57, size: 1.5 }); }],
+      ['From above, closing', h => { fly(h, h.W / 2, 70, { colors: C.violet, flap: 0.5, size: 1.5 }); }],
+      ['Side-on, wings up', h => { fly(h, h.W / 2, 78, { colors: C.blue, view: 'side', flap: 0, size: 1.5 }); }],
+      ['Side-on, wings spread', h => { fly(h, h.W / 2, 74, { colors: C.pink, view: 'side', flap: 1.57, size: 1.5 }); }],
+      ['Perched, side-on', h => { const f = flowerOf('daisy', h.W / 2, 30 * h.S, BLOOM); h.flowers.push(f); fly(h, f.x, h.soil() - f.h - 2.2 * h.S - 1.6 * 1.3 * 1.3 * h.S, { colors: C.yellow, view: 'side', flap: 0, size: 1.3, state: 'sip', perch: { view: 'side', tilt: -0.22, dx: 0, face: 1 } }); }],
+      ['Perched, from above', h => { const f = flowerOf('star', h.W / 2, 30 * h.S, BLOOM); h.flowers.push(f); fly(h, f.x, h.soil() - f.h - 2.2 * h.S - 0.6 * h.S, { colors: C.white, flap: 0.6, size: 1.3, state: 'sip', perch: { view: 'top', tilt: 0.2, dx: 0, face: 1 } }); }],
+    ], 2.2],
+    ['Bees', 'Buzz round a flower, park on it briefly to drink, buzz again.', [
+      ['Buzzing', h => { h.force('bee'); const b = h.bugs.at(-1); Object.assign(b, { x: h.W / 2, y: 70, state: 'wander', dir: 1, flap: 0.8 }); }],
+      ['Parked on a flower', h => { const f = flowerOf('daisy', h.W / 2, 30 * h.S, BLOOM); h.flowers.push(f); h.force('bee'); const b = h.bugs.at(-1); Object.assign(b, { x: f.x, y: h.soil() - f.h - 2.2 * h.S - 3.4 * h.S, state: 'sip', parked: true, dir: 1, flap: 0 }); }],
+    ], 2.2],
+    ['Flowers', 'Five kinds; each sprouts, buds, blooms for about a minute, wilts.', [
+      ['The five kinds', h => { ['daisy', 'pink', 'star', 'tulip', 'bell'].forEach((k, i) => h.flowers.push(flowerOf(k, h.W * (0.14 + i * 0.18), 30 * h.S, BLOOM))); }, null, true],
+      ['Sprout, bud, bloom, wilting', h => { [3, 12, BLOOM, 15 + 60 + 5].forEach((age, i) => h.flowers.push(flowerOf('pink', h.W * (0.17 + i * 0.22), 30 * h.S, age))); }, null, true],
+    ], 1.6],
+    ['Carrots and grass', 'Carrots ripen in the ground; grass fills in with each rain.', [
+      ['Carrots growing to ripe', h => { [0.25, 0.6, 1].forEach((k, i) => h.planted.push({ x: h.W * (0.25 + i * 0.25), ripe: k })); }],
+      ['A few clumps (15:30)', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 0.25, snap: true }); }],
+      ['Patchy (after two rains)', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 0.6, snap: true }); }],
+      ['A full meadow', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 1, snap: true }); }],
+    ], 1.6],
+    ['Rain and night', 'Drizzle, rain and a downpour; fireflies from 17:00.', [
+      ['Drizzle', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 1, rain: 0.25, snap: true }); return 4; }],
+      ['Rain', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 1, rain: 0.55, snap: true }); return 4; }],
+      ['Heavy rain', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 1, rain: 1, snap: true }); return 4; }],
+      ['Fireflies', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 1, snap: true }); [[0.2, 60, 1], [0.38, 95, 0.5], [0.55, 50, 1], [0.72, 110, 0.8], [0.86, 70, 0.3]].forEach(([x, y, on]) => h.fireflies.push({ x: h.W * x, y: h.soil() - y, vx: 0, vy: 0, on, onT: 0, offIn: 99, ph: 0 })); }],
+    ], 1.6],
+  ];
   function buildDesign() {
-    $('how-p-design').innerHTML = `
-      <p class="how-lede">One night palette for the site and the slides, a moon, lanterns, and a meadow that grows along the bottom. Everything in the meadow is drawn in code on one canvas, no images.</p>
-      <h3>Palette</h3>
-      <div class="how-sws">${sw('#0d1638', 'Night')}${sw('#16225a', 'Night 2')}${sw('#fff7e8', 'Ink')}${sw('#ffc94a', 'Gold')}${sw('#e0262f', 'Lantern red')}${sw('#ff7aa2', 'Pink')}${sw('#3cc6b4', 'Teal')}${sw('#5be0c4', 'Admin mint')}</div>
-      <h3>Type</h3>
-      <p class="how-type"><span style="font-family:var(--display);font-weight:900;font-size:28px">Tết Trung Thu</span> Playfair Display 900, for titles · <span style="font-family:var(--body);font-weight:700">Be Vietnam Pro</span> for everything else (full Vietnamese diacritics).</p>
-      <h3>The stage</h3>
-      <p>Slides are a fixed 1920×1080 stage scaled to fit; on an upright phone they re-flow onto 1080×1920 (taller phones stretch it). The meadow lives in the bottom strip; insects stay within about 160 rabbit-units of the floor, so slide content above stays clear.</p>
-      <div class="how-cards">
-        <article class="how-card"><h4>Rabbits</h4>
-          <p>Each is about eight circles and ellipses (feet, tail, haunch, body, paw, head, ears) drawn in one outline pass, then one fill pass, so overlaps read as one soft silhouette. Faces have eyes that move, a nose that twitches, a blush. Turning to the room swaps the head for a front face on the side-on body, with ear poses from upright to side by side or one flopped, never crossing.</p>
-          <div class="how-sws">${sw('#fdfbff', 'Jade fur')}${sw('#ffb3c7', 'Jade inner ear')}${sw('#f3eadf', 'Friend fur')}${sw('#b98a62', 'Friend ears')}${sw('#c99a72', 'Friend patch')}</div></article>
-        <article class="how-card"><h4>Butterflies</h4>
-          <p>Seen from above (both wings opening and closing) or side-on (wings folding up together and spreading flat). Perched, they sit centred on the top of a bloom at a slight angle, side-on mostly head-up.</p>
-          <div class="how-sws">${['#ff9a3c', '#7cc6ff', '#ffd34d', '#ff9dbb', '#fff6e8', '#b48cff'].map((c, i) => sw(c, ['Monarch', 'Blue', 'Yellow', 'Pink', 'White', 'Violet'][i])).join('')}</div></article>
-        <article class="how-card"><h4>Flowers</h4>
-          <p>Five kinds, each with a stem, two leaves that unfold, a bud, an opening bloom and a droop as it wilts.</p>
-          <div class="how-sws">${sw('#fffaf0', 'Daisy')}${sw('#ffc2d4', 'Pink daisy')}${sw('#ffd34d', 'Star')}${sw('#ff5a6e', 'Tulip')}${sw('#b48cff', 'Bellflower')}</div></article>
-        <article class="how-card"><h4>Weather and light</h4>
-          <p>Rain falls faint at the top and clearer near the floor, with splashes and a grey wash low down in heavy rain. Fireflies are soft radial glows in yellow-green.</p>
-          <div class="how-sws">${sw('#c8dcff', 'Rain')}${sw('#4f9a5c', 'Grass')}${sw('#2f6b45', 'Grass dark')}${sw('#e8ff96', 'Firefly')}</div></article>
-      </div>
-      <h3>Layering, back to front</h3>
-      <ol class="how-ol">${['Grass (back blades)', 'Flowers', 'Carrots in the ground, dropped carrots', 'Perched butterflies, parked bees', 'Rabbits (the one further back first)', 'Grass (front blades, so the rabbits sit in it)', 'Z’s over a sleeping rabbit', 'Flying butterflies and bees', 'Fireflies', 'Water shaken off a rabbit', 'Rain'].map(x => `<li>${esc(x)}</li>`).join('')}</ol>
-      <h3>Motion</h3>
-      <p>Everything eases rather than snaps; nothing new appears suddenly (grass grows in over a minute or two, flowers take 12–18 s to bloom). With reduced motion switched on, the rabbit sits still and nothing animates.</p>`;
+    const panel = $('how-p-design');
+    panel.innerHTML = `<p class="how-lede">What lives in the meadow and every state it can be in, drawn by the real code. All of it is shapes on one canvas, no images.</p>` +
+      GALLERY.map(([title, note, tiles], gi) => `<h3>${esc(title)}</h3><p class="how-dim">${esc(note)}</p><div class="how-gal">${tiles.map((t, ti) => `<figure class="${t[3] ? 'wide' : ''}"><div class="how-tile" data-g="${gi}" data-t="${ti}"></div><figcaption>${esc(t[0])}</figcaption></figure>`).join('')}</div>`).join('');
+    for (const tile of panel.querySelectorAll('.how-tile')) {
+      const [, , tiles, scale] = GALLERY[tile.dataset.g], [, fn, look] = tiles[tile.dataset.t];
+      const h = window.mountRabbit(tile, { manual: true, gallery: true, interactive: false, look, scale: () => scale || 1.6, tune: { flies: 0, binky: true } });
+      if (!h) continue;
+      if (!GALLERY[tile.dataset.g][0].includes('rabbit') && GALLERY[tile.dataset.g][0] !== 'The friend') h.main.gone = true; // no rabbit in the other tiles
+      const secs = fn(h) || 0;
+      h.settle(secs, () => h.hold?.());
+    }
   }
 
   // ── The repo ──────────────────────────────────────────
@@ -301,7 +368,6 @@
         }
         cols += `<span>${cells}</span>`;
       }
-      const latest = commits.slice(0, 10).map(c => `<li><a href="${esc(c.html_url)}" target="_blank" rel="noopener"><code>${esc(c.sha.slice(0, 7))}</code></a> ${esc(c.commit.message.split('\n')[0])} <span class="how-dim">${esc(new Date(c.commit.author.date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></li>`).join('');
       commitHtml = `
         <div class="how-stats">
           <div><b>${commits.length}</b><span>commits</span></div>
@@ -311,7 +377,7 @@
         </div>
         <div class="how-board" role="img" aria-label="${commits.length} commits over ${span} days, ${nice(first)} to ${nice(last)}. Busiest day ${nice(bd)}, ${bn} commits.">${cols}</div>
         <p class="how-dim how-cap">Twelve weeks to today, a square a day: it didn’t exist, and then it did.</p>
-        <h3>Latest commits</h3><ul class="how-commits">${latest}</ul>`;
+`;
     }
     body.innerHTML = `${commitHtml}
       <h3>The code</h3>

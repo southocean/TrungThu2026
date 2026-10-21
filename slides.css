@@ -292,3 +292,8 @@ html, body { height: 100%; overflow: hidden; background: #0b1233; }
 #rabbit .i-slash { display: none; position: absolute; inset: 0; margin: auto; }
 #rabbit[aria-pressed="false"] .i-rabbit { opacity: .45; filter: grayscale(1); }
 #rabbit[aria-pressed="false"] .i-slash { display: block; }
+
+/* admin: frame rate, bottom right */
+.fps { position: fixed; right: 10px; bottom: 74px; z-index: 9999; pointer-events: none; padding: 4px 9px; border-radius: 8px; font: 700 12px/1.2 ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; background: rgba(6, 12, 30, .82); border: 1px solid rgba(91, 224, 196, .5); color: #5be0c4; }
+.fps.mid { color: #ffc94a; border-color: rgba(255, 201, 74, .5); }
+.fps.low { color: #ff6b7a; border-color: rgba(255, 107, 122, .5); }

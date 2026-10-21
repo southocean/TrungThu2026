@@ -522,12 +522,34 @@
     addEventListener('pointerdown', e => { if (!wrap.contains(e.target)) close(0); });
   }
 
+  // Admin: frame rate in the bottom right, so performance can be watched while things change.
+  function fpsMeter() {
+    const el = document.createElement('div');
+    el.className = 'fps'; el.setAttribute('aria-hidden', 'true'); el.textContent = '-- fps';
+    document.body.append(el);
+    let frames = 0, t0 = performance.now(), run = true;
+    const loop = now => {
+      if (!run) return;
+      frames++;
+      if (now - t0 >= 500) {
+        const fps = Math.round((frames * 1000) / (now - t0));
+        el.textContent = fps + ' fps';
+        el.className = 'fps' + (fps < 30 ? ' low' : fps < 50 ? ' mid' : '');
+        frames = 0; t0 = now;
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+    return () => { run = false; el.remove(); };
+  }
+  let fpsOn = !embed && isAdmin() && fpsMeter(); // the home page shows its own; not inside the embed
+
   // The Konami code unlocks admin here too (same lock as the home page).
   const KONAMI = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
   let ki = 0;
   addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
-    if (k === KONAMI[ki]) { if (++ki === KONAMI.length) { ki = 0; try { sessionStorage.setItem('tt_admin', '1'); } catch {} hud.hidden = false; showHud(); } }
+    if (k === KONAMI[ki]) { if (++ki === KONAMI.length) { ki = 0; try { sessionStorage.setItem('tt_admin', '1'); } catch {} hud.hidden = false; showHud(); if (!fpsOn && !embed) fpsOn = fpsMeter(); } }
     else ki = k === KONAMI[0] ? 1 : 0;
   }, true);
 

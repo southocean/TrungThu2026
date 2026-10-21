@@ -122,6 +122,7 @@
 
   let last = performance.now();
   function frame(now) {
+    if (document.documentElement.classList.contains('how-open')) { last = now; requestAnimationFrame(frame); return; } // the admin Log covers the page: don't draw what nobody sees
     const dt = Math.min(.1, (now - last) / 1000);
     last = now;
     const sy = scrollY, t = now / 1000;

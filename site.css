@@ -337,6 +337,7 @@ body.admin .brand::after {
 body.admin .devtools { border-color: rgba(91, 224, 196, .55); }
 body.admin .dt-kicker { color: var(--mint); }
 .nav-how {
+  display: inline-flex; align-items: center; gap: 6px;
   font: 700 14px var(--body); padding: 8px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
   color: #062a24; background: var(--mint, #5be0c4); border: 0;
 }
@@ -352,7 +353,7 @@ html.how-open { overflow: hidden; }
   box-shadow: 0 40px 120px rgba(0, 0, 0, .6); overflow: hidden; display: none; flex-direction: column;
 }
 .how[open] { display: flex; }
-.how::backdrop { background: rgba(4, 8, 24, .7); backdrop-filter: blur(4px); }
+.how::backdrop { background: rgba(4, 8, 24, .82); } /* no blur: re-blurring the animated page every frame is what made the Log laggy */
 .how-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 26px 8px; }
 .how-kicker { margin: 0 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5be0c4; }
 .how h2 { margin: 0; font-size: clamp(26px, 4vw, 36px); }
@@ -374,7 +375,7 @@ html.how-open { overflow: hidden; }
 .how-live { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .how-live div { padding: 9px 12px; border-radius: 12px; background: rgba(91, 224, 196, .07); border: 1px solid rgba(91, 224, 196, .22); min-width: 0; }
 .how-live span { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #5be0c4; font-weight: 700; }
-.how-live b { font-size: 14.5px; font-weight: 600; }
+.how-live b { display: block; font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* one line each */
 .how-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .how-card { padding: 14px 16px; border-radius: 16px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); min-width: 0; }
 .how-card h4 { margin: 0 0 6px; font-size: 17px; display: flex; align-items: center; gap: 8px; }
@@ -448,9 +449,20 @@ html.how-open { overflow: hidden; }
   .how-files div { grid-template-columns: 1fr 110px; } .how-files i { display: none; }
 }
 .how-cap { font-size: 13px; margin-top: 6px !important; }
-.nav-how .how-short { display: none; }
 @media (max-width: 560px) {
-  .nav-how .how-long { display: none; } .nav-how .how-short { display: inline; }
   body.admin .brand::after { display: none; } /* the mint line under the header still says admin */
   body.admin .top nav a:first-child { display: none; }
 }
+
+/* the creatures gallery: still frames drawn by rabbit.js */
+.how-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-bottom: 6px; }
+.how-gal figure { margin: 0; border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, #16225a, #0d1638); border: 1px solid var(--line); }
+.how-gal figure.wide { grid-column: span 2; }
+.how-tile { position: relative; height: 150px; }
+.how-gal figcaption { padding: 7px 10px 9px; font-size: 13px; font-weight: 600; border-top: 1px solid var(--line); }
+@media (max-width: 420px) { .how-gal figure.wide { grid-column: auto; } }
+
+/* admin: frame rate, bottom right */
+.fps { position: fixed; right: 10px; bottom: 10px; z-index: 9999; pointer-events: none; padding: 4px 9px; border-radius: 8px; font: 700 12px/1.2 ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; background: rgba(6, 12, 30, .82); border: 1px solid rgba(91, 224, 196, .5); color: #5be0c4; }
+.fps.mid { color: #ffc94a; border-color: rgba(255, 201, 74, .5); }
+.fps.low { color: #ff6b7a; border-color: rgba(255, 107, 122, .5); }

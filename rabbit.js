@@ -1338,7 +1338,7 @@ window.mountRabbit = (box, opt = {}) => {
     drawRain();
   }
 
-  main = Bunny(LOOKS.jade, 0.6);
+  main = Bunny(LOOKS[opt.look] || LOOKS.jade, 0.6);
 
   // ── Pointer: pick up the jade rabbit (site only) ──
   function local(e) {
@@ -1398,7 +1398,7 @@ window.mountRabbit = (box, opt = {}) => {
   // With opt.manual the owner decides when the rabbit is out (the slideshow's stage schedule).
   // Going away, it finishes what it's doing and hops off the nearer side; coming back, it hops
   // in from a side, or turns round if it hadn't quite left yet.
-  let wantOut = !opt.manual;
+  let wantOut = !opt.manual || !!opt.gallery; // gallery: a still portrait for the admin Log, no loop of its own
   const spotNear = fromLeft => (fromLeft ? rand(margin() + 20 * S, W * 0.3) : rand(W * 0.7, W - margin() - 20 * S));
   function comeIn() {
     const r = main.r;
@@ -1423,7 +1423,7 @@ window.mountRabbit = (box, opt = {}) => {
     if (bugs.length) fleeing = true; // let them fly off first
     else running = false;
   }
-  if (opt.manual) { /* show() drives it */ } else if (opt.active) {
+  if (opt.manual || opt.gallery) { /* show() drives it, or nothing does (a gallery tile) */ } else if (opt.active) {
     const check = () => (opt.active() ? start() : stop());
     new MutationObserver(check).observe(opt.watch || box, { attributes: true, attributeFilter: ['class'] });
     check();
@@ -1474,6 +1474,9 @@ window.mountRabbit = (box, opt = {}) => {
   // a handle for poking at the meadow from the console
   return {
     configure, show, features: F, tune, bugs, flowers, planted,
+    // for the admin Log's gallery: run the world for a moment (hold() keeps a pose each step), then draw once
+    settle(secs = 0, hold) { for (let i = 0; i < Math.round(secs * 60); i++) { step(1 / 60); hold?.(); } render(); },
+    paint() { render(); }, size() { size(); }, get W() { return W; }, get S() { return S; }, groundY, soil, LOOKS,
     // the slideshow's clock sets these every second: rain 0…1 and how much of the meadow is grass
     weather({ rain: rn = 0, grass: gr = 0, snap = false } = {}) { rainTarget = rn; grassTarget = gr; if (snap || !weathered) grassAmt = F.grass ? gr : 0; weathered = true; if ((rn > 0.01 || rain > 0.01) && entered) start(); },
     get rain() { return rain; }, get grass() { return grassAmt; }, get wet() { return wet; }, fireflies,

@@ -33,7 +33,7 @@
 window.mountRabbit = (box, opt = {}) => {
   if (!box) return;
   const interactive = opt.interactive !== false;
-  const F = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false, ...opt.features };
+  const F = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false, mushrooms: false, leaves: false, ...opt.features };
   // How busy it gets; the slideshow raises these over play time (PHASES in slides.js).
   //   flies: most butterflies at once · flyChance: odds one turns up per check (every 4–9 s)
   //   binky: allowed · flowers / bees / carrots: most at once (also capped by the box's width)
@@ -42,7 +42,8 @@ window.mountRabbit = (box, opt = {}) => {
   //   ambient: with the rabbit away, now and then a butterfly or a bee drifts through
   const tune = {
     flies: 1, flyChance: 0.1, binky: true, flowers: 8, bees: 2, carrots: 3,
-    friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ambient: false, resident: false, ...opt.tune,
+    friend: false, friendEvery: [540, 720], friendStay: [60, 110], share: false, ambient: false, resident: false,
+    mushrooms: 3, leafEvery: [10, 22], grassRate: 1, ...opt.tune, // leafEvery: seconds between falling leaves; grassRate: how fast grass grows
   };
   // Grass: how much of the meadow is grown, 0 (bare) … 1 (full). It eases toward its target (set by the
   // slideshow: a few clumps when it switches on, then a step up with each rain), so it visibly grows.
@@ -95,12 +96,22 @@ window.mountRabbit = (box, opt = {}) => {
   let grass = [];
   const flowers = []; // { x, kind, colors, h, lean, age, growDur, bloomDur, wiltDur }
   const planted = []; // carrots in the ground: { x, ripe 0..1 }
+  const shrooms = []; // mushrooms in the grass: { x, grow 0..1, eaten 0..1, size, kind, by, byT }
+  const leaves = []; // autumn leaves: { x, y, rot, state: 'fall' | 'ground' | 'on', host, ox, oy, t, ... }
   const lying = []; // carrots dropped after a grab (site): { x, len, tilt }
   const bugs = []; // butterflies and bees
   const zs = []; // floating z's over sleeping rabbits
-  const worldCool = { plant: rand(4, 10), bug: rand(3, 8), friend: rand(30, 60) };
+  const worldCool = { plant: rand(4, 10), bug: rand(3, 8), friend: rand(30, 60), shroom: rand(3, 8), leaf: rand(2, 6) };
   const maxFlowers = () => Math.min(tune.flowers, clamp(Math.round(W / (230 * S)), 2, 8));
   const maxCarrots = () => Math.min(tune.carrots, clamp(Math.round(W / (500 * S)), 1, 3));
+  const maxShrooms = () => Math.min(tune.mushrooms, clamp(Math.round(W / (320 * S)), 1, 4));
+  // autumn colours: brown and tan caps (no red toadstools: these are for eating), maple-ish leaves
+  const SHROOM_KINDS = [
+    { cap: '#9a5a2e', dark: '#6e3d1c', gill: '#e8d3b0', stem: '#f1e4cc' },
+    { cap: '#c99256', dark: '#9a6a36', gill: '#f0dcbc', stem: '#f6ead6' },
+    { cap: '#e6b24a', dark: '#b8822a', gill: '#f6dfa0', stem: '#f8ecd2' },
+  ];
+  const LEAF_COLORS = ['#e8722a', '#d9452b', '#f2b33d', '#b5541c', '#c98a2b', '#e05a32'];
   const MAX_LYING = 5;
   const FLOWER_KINDS = [
     { kind: 'daisy', colors: ['#fffaf0', '#ffd34d'] },
@@ -153,6 +164,13 @@ window.mountRabbit = (box, opt = {}) => {
     const f = { x, ...pick(FLOWER_KINDS), h: rand(18, 34) * S, lean: rand(-0.12, 0.12), age: 0, growDur: rand(12, 18), bloomDur: rand(45, 75), wiltDur: rand(7, 10) };
     if (inBloom) f.age = f.growDur + rand(3, 20);
     flowers.push(f);
+  }
+  function sproutShroom(grow = 0) {
+    const x = freeGroundSpot();
+    if (x != null) shrooms.push({ x, grow, eaten: 0, size: rand(0.8, 1.2), kind: pick(SHROOM_KINDS), by: null, byT: 0 });
+  }
+  function dropLeaf(x = rand(0.04, 0.96) * W) {
+    leaves.push({ x, y: -12 * S, vy: rand(16, 28) * S, ph: rand(0, TAU), rot: rand(0, TAU), vr: rand(-1.5, 1.5), color: pick(LEAF_COLORS), size: rand(0.85, 1.2), state: 'fall', t: 0 });
   }
   function plantCarrot(ripe = 0) {
     const x = freeGroundSpot();
@@ -313,6 +331,26 @@ window.mountRabbit = (box, opt = {}) => {
       if (!leaves) { g.fillStyle = '#ffd08a'; g.beginPath(); g.ellipse(0, 0, 1.4, w, 0, 0, TAU); g.fill(); } // the snapped face
     }
     g.restore();
+  }
+  function drawShroom(m) { // stem and cap come up together; a nibbled one shrinks from the cap
+    const k = smooth(m.grow) * (1 - m.eaten * 0.85), sc = S * m.size, y = soil();
+    if (k <= 0.02) return;
+    const sh = 9 * k, cw = 8 * k, ch = 5.5 * k;
+    g.fillStyle = m.kind.stem; g.beginPath(); g.ellipse(m.x, y - sh * sc / 2, 2.4 * k * sc, sh * sc / 2 + 0.5, 0, 0, TAU); g.fill();
+    g.fillStyle = m.kind.gill; g.beginPath(); g.ellipse(m.x, y - sh * sc, cw * sc, 1.6 * k * sc, 0, 0, TAU); g.fill();
+    g.fillStyle = m.kind.cap; g.beginPath(); g.ellipse(m.x, y - sh * sc, cw * sc, ch * sc, 0, Math.PI, TAU); g.fill();
+    g.fillStyle = m.kind.dark; g.globalAlpha = 0.35; g.beginPath(); g.ellipse(m.x + 2 * k * sc, y - sh * sc - ch * sc * 0.15, cw * sc * 0.6, ch * sc * 0.55, 0, Math.PI, TAU); g.fill(); g.globalAlpha = 1;
+    if (m.eaten > 0.15) { g.fillStyle = m.kind.gill; g.beginPath(); g.arc(m.x - cw * sc * 0.7, y - sh * sc - ch * sc * 0.3, ch * sc * 0.55, 0, TAU); g.fill(); } // a bite out of the cap
+  }
+  function drawLeaf(l) { // a small maple-ish leaf with a stem
+    g.save(); g.translate(l.x, l.y); g.rotate(l.rot); g.scale(S * l.size, S * l.size);
+    g.globalAlpha = l.fade == null ? 1 : l.fade;
+    g.fillStyle = l.color; g.beginPath();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i / 10) * TAU, rr = i % 2 ? 2.6 : (i === 0 ? 6.4 : 5.4); g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(90, 40, 10, .55)'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 4.5); g.lineTo(0, -4.5); g.moveTo(0, 0); g.lineTo(3.4, -2.6); g.moveTo(0, 0); g.lineTo(-3.4, -2.6); g.stroke();
+    g.strokeStyle = '#7a4a1e'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(0, 3); g.lineTo(0.6, 7); g.stroke();
+    g.restore(); g.globalAlpha = 1;
   }
   function drawPlanted(c) { // a growing carrot: leaves fill out, the orange shoulder shows as it ripens
     const y = soil(), k = c.ripe, n = k < 0.3 ? 2 : k < 0.7 ? 3 : 5, L = (4 + 11 * k) * S;
@@ -516,7 +554,7 @@ window.mountRabbit = (box, opt = {}) => {
       vx: 0, vy: 0, swing: 0, kick: 0, // held / falling
     };
     // seconds until each bigger behaviour may happen again
-    const cool = { carrot: rand(6, 12), chase: rand(6, 14), sleep: rand(45, 80), flop: rand(12, 25), binky: rand(8, 20), smell: rand(5, 12), avoid: 0, social: rand(3, 6) };
+    const cool = { carrot: rand(6, 12), chase: rand(6, 14), sleep: rand(45, 80), flop: rand(12, 25), binky: rand(8, 20), smell: rand(5, 12), avoid: 0, social: rand(3, 6), leaf: rand(2, 6), shroom: rand(4, 10) };
     let carrot = null; // the one being dug up or eaten: { x, len, state: 'buried' | 'mouth', out }
     let held = null;
     const sc = () => S * (0.9 + r.d * 0.1) * look.scale;
@@ -533,13 +571,20 @@ window.mountRabbit = (box, opt = {}) => {
     }
     const free = () => r.mode === 'rest' && r.act !== 'groom';
     // can drop what it's doing to come and share (not mid-meal, asleep, greeting or leaving)
-    const available = () => r.visit !== 'leave' && !r.entering && !['held', 'fall', 'land', 'sleep', 'dig', 'pull', 'eat', 'share', 'greet', 'groomOther', 'enjoy'].includes(r.mode);
+    const available = () => r.visit !== 'leave' && !r.entering && !['held', 'fall', 'land', 'sleep', 'dig', 'pull', 'eat', 'share', 'greet', 'groomOther', 'enjoy', 'nibble'].includes(r.mode);
+    // a leaf on its head or back: it stays a few seconds, then a shake (or the next hop) sends it off
+    function wear(l, dx, oy) { l.state = 'on'; l.host = me; l.ox = dx; l.oy = oy; l.baseRot = rand(-0.6, 0.6); r.leaf = l; r.leafT = rand(2.5, 5); }
+    function shed(spin = 1) {
+      const l = r.leaf; if (!l) return;
+      r.leaf = null; l.state = 'fall'; l.host = null; l.caught = true; l.vy = rand(14, 22) * S; l.vr = spin * rand(2, 4); l.t = rand(0, 2);
+    }
     function rest(min = 2, max = 5) {
       if (carrot) { if (carrot.state === 'mouth') { setMode('eat'); return; } carrot = null; } // never left holding a half-done carrot
       setMode('rest', rand(min, max)); r.act = null; r.actT = rand(0.6, 1.6);
     }
 
     function startHops(n, dir, toX = null, kind = 'hop') {
+      if (r.leaf && kind !== 'leap') shed(dir); // a hop sends a leaf flying
       r.hops = n; r.pause = 0; r.face = dir; r.chaseX = toX;
       r.binky = kind === 'binky';
       r.hopDur = r.binky ? 0.7 : kind === 'leap' ? 0.55 : 0.4;
@@ -673,6 +718,24 @@ window.mountRabbit = (box, opt = {}) => {
         });
         return;
       }
+      // a ripe mushroom it can see: hop over and nibble it down to nothing
+      const shroom = F.mushrooms && cool.shroom <= 0 && nearest(shrooms, VISION * S, m => m.grow >= 1 && (!m.by || T - m.byT > 10));
+      if (shroom && chance(0.55)) {
+        const dir = Math.sign(shroom.x - r.x) || r.face;
+        shroom.by = me; shroom.byT = T;
+        goTo(shroom.x - dir * 24 * S, () => {
+          if (!shrooms.includes(shroom)) { rest(1, 2); return; }
+          r.face = dir; r.shroom = shroom; setMode('nibble', rand(3, 4.5));
+        });
+        return;
+      }
+      // a leaf drifting down nearby: go and stand under it, watch it come, then jump to bat it
+      const leaf = cool.leaf <= 0 && !r.leaf && leaves.find(l => l.state === 'fall' && !l.caught && l.y < r.y - 90 * S && Math.abs(l.x - r.x) < 220 * S);
+      if (leaf && chance(0.65)) {
+        cool.leaf = rand(8, 16); r.leafAim = leaf;
+        goTo(leaf.x - r.face * 6 * S, () => setMode('watchLeaf', 6));
+        return;
+      }
       if (r.goal && chance(0.85)) { goTo(r.goal.x, r.goal.then); return; } // carry on where it was going
       r.goal = null;
       const flies = butterflies();
@@ -715,7 +778,7 @@ window.mountRabbit = (box, opt = {}) => {
       r.glanceIn -= dt;
       const p = partner();
       const near = pointer.inside && Math.hypot(pointer.x - r.x, pointer.y - r.y) < 220 * S;
-      const watch = r.mode === 'chase' && r.focus ? r.focus : ['greet', 'groomOther', 'share'].includes(r.mode) && p ? { x: p.r.x, y: p.r.y - 25 * S } : r.wary && r.mode !== 'sleep' ? r.wary : null;
+      const watch = r.mode === 'watchLeaf' && r.leafAim ? r.leafAim : r.mode === 'chase' && r.focus ? r.focus : ['greet', 'groomOther', 'share'].includes(r.mode) && p ? { x: p.r.x, y: p.r.y - 25 * S } : r.wary && r.mode !== 'sleep' ? r.wary : null;
       if (watch) {
         r.lookTX = clamp((watch.x - r.x) * r.face / 50, -1, 1);
         r.lookTY = clamp((watch.y - (r.y - 30 * S)) / 50, -1, 1);
@@ -890,6 +953,32 @@ window.mountRabbit = (box, opt = {}) => {
           }
           break;
         }
+        case 'nibble': { // eating a mushroom where it stands, small bites until it's gone
+          r.y = groundY(r.d);
+          const m = r.shroom;
+          if (!m || !shrooms.includes(m)) { r.shroom = null; rest(1, 2); break; }
+          headDown = 0.8; chew = 1; noseRate = 20; earsT = [-0.5, -0.3];
+          m.eaten = Math.min(1, r.t / r.until);
+          if (r.t > r.until) { shrooms.splice(shrooms.indexOf(m), 1); r.shroom = null; cool.shroom = rand(8, 16); rest(1.5, 3); }
+          break;
+        }
+        case 'watchLeaf': { // the catch game: chin up, eyes on the leaf, then a jump to bat it
+          r.y = groundY(r.d);
+          const l = r.leafAim;
+          if (!l || l.state !== 'fall' || r.t > r.until) { r.leafAim = null; rest(1, 2); break; }
+          rear = 0.7; headDown = -0.4; earsT = [0.05, 0.2]; noseRate = 16;
+          const dx = l.x - r.x;
+          if (Math.abs(dx) > 10 * S) r.face = Math.sign(dx);
+          if (Math.abs(dx) > 45 * S && r.t > 0.6) { goTo(l.x, () => setMode('watchLeaf', 4)); break; } // shuffle under it
+          const head = r.y - 46 * S * look.scale;
+          if (l.y > head - 70 * S && Math.abs(dx) < 40 * S) { // in reach: jump for it
+            r.leafAim = null;
+            startHops(1, r.face, null, 'leap');
+            if (chance(0.55)) wear(l, 14 * S, -48 * S * look.scale); // caught it on its head
+            else { l.caught = true; l.vr += r.face * 6; l.vy *= 0.5; l.x += r.face * 6 * S; } // batted it away
+          }
+          break;
+        }
         case 'smell': // nose to a flower
           r.y = groundY(r.d); headDown = 0.55; noseRate = 26; earsT = [-0.2, 0.05];
           if (r.t > r.until) rest(1, 2.5);
@@ -983,8 +1072,14 @@ window.mountRabbit = (box, opt = {}) => {
             r.feIn -= dt;
             if (r.feIn < 0) { r.feIn = rand(0.9, 2); r.feT = pick(FRONT_EARS); }
           }
+          if (r.leaf && (r.leafT -= dt) < 0) { r.shake = 0.9; shed(chance(0.5) ? 1 : -1); } // a shake of the head, off it goes
+          // resting and a leaf comes drifting down nearby: off to play catch
+          if (!r.leaf && cool.leaf <= 0 && r.act !== 'audience' && rain < 0.3 && chance(dt * 1.2)) {
+            const l = leaves.find(x => x.state === 'fall' && !x.caught && x.y < r.y - 90 * S && Math.abs(x.x - r.x) < 240 * S);
+            if (l) { cool.leaf = rand(6, 12); r.leafAim = l; r.act = null; goTo(l.x - r.face * 6 * S, () => setMode('watchLeaf', 6)); break; }
+          }
           // a butterfly right overhead: chin up, eyes up at it
-          const above = !['groom', 'earGroom'].includes(r.act) && bugs.find(b => b.type === 'fly' && Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
+          const above = !['groom', 'earGroom'].includes(r.act) && [...bugs.filter(b => b.type === 'fly'), ...leaves.filter(l => l.state === 'fall')].find(b => Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
           if (above) { r.act = r.act === 'audience' ? null : r.act; headDown = -0.6; rear = Math.max(rear, 0.25); earsT = [0.05, 0.15]; r.lookTX = clamp((above.x - r.x) * r.face / 50, -1, 1); r.lookTY = -1; }
           if (r.t > r.until && (!r.act || r.act === 'loaf')) decide();
         }
@@ -1206,7 +1301,7 @@ window.mountRabbit = (box, opt = {}) => {
     }
 
     Object.assign(me, {
-      r, look, cool, step, draw, setMode, rest, goTo, startHops, mouthX, sc, free, available, enterFrom, exit,
+      r, look, cool, step, draw, setMode, rest, goTo, startHops, mouthX, sc, free, available, enterFrom, exit, wear, shed,
       hit, grab, drop, decide, startChase, stroll,
       force: {
         sleep: () => setMode('sleep', 8), sploot: () => setMode('sploot', 4), binky: () => startHops(1, roomyDir(), null, 'binky'),
@@ -1240,7 +1335,7 @@ window.mountRabbit = (box, opt = {}) => {
     T += dt;
     for (const k in worldCool) worldCool[k] -= dt;
     const gt = F.grass ? grassTarget : 0; // grows about a fifth of the meadow a minute, shrinks back if stepped back
-    grassAmt = gt > grassAmt ? Math.min(gt, grassAmt + dt * (0.0035 + rain * 0.006)) : Math.max(gt, grassAmt - dt / 60);
+    grassAmt = gt > grassAmt ? Math.min(gt, grassAmt + dt * (0.0035 + rain * 0.006) * tune.grassRate) : Math.max(gt, grassAmt - dt / 60);
     rain = ease(rain, rainTarget, 0.25, dt);
     wet = rain > wet ? Math.min(1, wet + rain * dt / 20) : Math.max(0, wet - dt / 150); // soaks in during rain, dries over a few minutes
     const lush = 1 + wet * 2; // growing speed
@@ -1251,6 +1346,12 @@ window.mountRabbit = (box, opt = {}) => {
     // carrots ripen over about 38 s; a new one is planted every 16–28 s while there's room
     for (const c of planted) c.ripe = Math.min(1, c.ripe + (dt / 38) * lush);
     if (F.growCarrots && planted.length < maxCarrots() && worldCool.plant <= 0) { plantCarrot(); worldCool.plant = rand(16, 28) / lush; }
+    // mushrooms come up in the grass over ~20 s (faster on wet ground)
+    for (const m of shrooms) m.grow = Math.min(1, m.grow + (dt / 20) * lush);
+    if (F.mushrooms && shrooms.length < maxShrooms() && worldCool.shroom <= 0) { sproutShroom(); worldCool.shroom = rand(10, 22) / lush; }
+    // autumn leaves drift down now and then
+    if (F.leaves && worldCool.leaf <= 0) { dropLeaf(); worldCool.leaf = rand(...tune.leafEvery); }
+    stepLeaves(dt);
     // insects come for the flowers (a lone butterfly sometimes passes even without any)
     const blooms = flowers.filter(blooming).length;
     const flies = bugs.filter(b => b.type === 'fly').length, bees = bugs.length - flies;
@@ -1309,6 +1410,34 @@ window.mountRabbit = (box, opt = {}) => {
       if (rain > 0.3 && f.on <= 0) fireflies.splice(i, 1);
     }
   }
+  // Leaves: falling (swaying, turning), on the ground for a while, or riding on a rabbit until it
+  // shakes or hops. One drifting down onto a rabbit's head or back may stay there.
+  function stepLeaves(dt) {
+    const ground = soil() - 1 * S;
+    for (let i = leaves.length - 1; i >= 0; i--) {
+      const l = leaves[i];
+      l.t += dt;
+      if (l.state === 'fall') {
+        l.y += l.vy * dt * (1 + rain * 1.5);
+        l.x += (Math.sin(l.t * 1.7 + l.ph) * 30 + rain * 20) * S * dt;
+        l.rot += (l.vr + Math.sin(l.t * 2.1 + l.ph) * 1.6) * dt;
+        for (const b of [main, friend]) { // drifting onto a rabbit's head or back
+          if (!b || b.gone || b.r.leaf || l.caught || b.r.mode === 'hop' || b.r.mode === 'held') continue;
+          const dx = (l.x - b.r.x) * b.r.face, top = b.r.y - (dx > 8 * S ? 46 : 32) * S * b.look.scale;
+          if (Math.abs(dx - 4 * S) < 20 * S && l.y > top - 3 * S && l.y < top + 4 * S && chance(0.5)) b.wear(l, dx, top - b.r.y);
+          else if (Math.abs(dx - 4 * S) < 20 * S && l.y > top + 4 * S) l.caught = true; // passed it by
+        }
+        if (l.y >= ground) { l.state = 'ground'; l.y = ground; l.t = 0; l.rot = rand(-0.5, 0.5) + (chance(0.5) ? Math.PI / 2 : -Math.PI / 2) * 0.2; }
+      } else if (l.state === 'ground') {
+        if (l.t > 24) { l.fade = Math.max(0, 1 - (l.t - 24) / 4); if (l.fade <= 0) leaves.splice(i, 1); }
+      } else if (l.state === 'on') {
+        const h = l.host;
+        if (!h || h.gone) { l.state = 'fall'; l.vy = 20 * S; continue; }
+        l.x = h.r.x + l.ox * h.r.face; l.y = h.r.y + l.oy - h.r.air * h.r.hopH * S * h.look.scale; l.rot = l.baseRot + Math.sin(T * 2) * 0.05;
+      }
+    }
+    while (leaves.filter(l => l.state === 'ground').length > 14) leaves.splice(leaves.findIndex(l => l.state === 'ground'), 1);
+  }
   function step(dt) {
     stepWorld(dt);
     if (!main.gone) main.step(dt);
@@ -1321,10 +1450,13 @@ window.mountRabbit = (box, opt = {}) => {
     drawGrass(false);
     for (const f of flowers) drawFlower(f);
     for (const c of planted) drawPlanted(c);
+    for (const m of shrooms) drawShroom(m);
+    for (const l of leaves) if (l.state === 'ground') drawLeaf(l);
     for (const c of lying) drawCarrot(c.x, groundY(0.6) - 4 * S, c.tilt, c.len, S);
     const perched = b => b.state === 'sip' && (b.type === 'fly' || b.parked); // on a flower: behind the rabbits, like the flower
     for (const b of bugs) if (perched(b)) (b.type === 'bee' ? drawBee : drawButterfly)(b);
     for (const b of [main, friend].filter(b => b && !b.gone).sort((a, b) => a.r.d - b.r.d)) b.draw(); // back rabbit first
+    for (const l of leaves) if (l.state === 'on') drawLeaf(l); // riding on a rabbit
     drawGrass(true); // a few blades in front, so the rabbits sit in the grass
     if (zs.length) { // z's over a sleeping rabbit
       g.save(); g.textAlign = 'center';
@@ -1336,6 +1468,7 @@ window.mountRabbit = (box, opt = {}) => {
       g.restore();
     }
     for (const b of bugs) if (!perched(b)) (b.type === 'bee' ? drawBee : drawButterfly)(b);
+    for (const l of leaves) if (l.state === 'fall') drawLeaf(l);
     for (const f of fireflies) drawFirefly(f);
     drawSprays();
     drawRain();
@@ -1461,14 +1594,16 @@ window.mountRabbit = (box, opt = {}) => {
   // the slideshow's phases switch parts on and turn things up through this
   function configure({ features = {}, tune: t = {} } = {}) {
 
-    const friendWasOn = tune.friend;
+    const friendWasOn = tune.friend, fliesWere = tune.flies;
     Object.assign(F, features);
     Object.assign(tune, t);
 
     if (!F.flowers) flowers.length = 0;
     if (!F.growCarrots) planted.length = 0;
+    if (!F.mushrooms) shrooms.length = 0;
     if (!F.bees) for (const b of bugs) if (b.type === 'bee') b.state = 'leave';
-    if (tune.friend && !friendWasOn) worldCool.friend = rand(20, 45); // first visit soon after it unlocks
+    if (!fliesWere && tune.flies > 0 && entered && !main.gone && rain < 0.15) spawnBug('fly'); // butterflies unlock: the first one flies straight in
+    if (tune.friend && !friendWasOn) worldCool.friend = rand(...(tune.friendSoon || [20, 45])); // first visit soon after it unlocks
     if (tune.resident) { worldCool.friend = Math.min(worldCool.friend, rand(3, 10)); if (friend) friend.r.stayLeft = Infinity; } // moving in: here soon, here to stay
     else if (friend && friend.r.stayLeft === Infinity) friend.r.stayLeft = rand(...tune.friendStay); // stepped back: just visiting again
     if (!tune.friend && friend && friend.r.visit !== 'leave') friend.exit();
@@ -1478,7 +1613,7 @@ window.mountRabbit = (box, opt = {}) => {
 
   // a handle for poking at the meadow from the console
   return {
-    configure, show, features: F, tune, bugs, flowers, planted,
+    configure, show, features: F, tune, bugs, flowers, planted, shrooms, leaves, dropLeaf,
     freeze(on) { frozen = on; if (!on && (wantOut || !main.gone || bugs.length || rain > 0.01 || fireflies.length)) start(); },
     // for the admin Log's gallery: run the world for a moment (hold() keeps a pose each step), then draw once
     settle(secs = 0, hold) { for (let i = 0; i < Math.round(secs * 60); i++) { step(1 / 60); hold?.(); } render(); },
@@ -1491,6 +1626,7 @@ window.mountRabbit = (box, opt = {}) => {
     force(what) {
       const extra = {
         fly: () => spawnBug('fly'), bee: () => spawnBug('bee'), flower: () => sproutFlower(true), carrot: () => plantCarrot(1),
+        mushroom: () => sproutShroom(1), leaf: () => dropLeaf(main && !main.gone ? clamp(main.r.x + rand(-60, 60) * S, 20 * S, W - 20 * S) : undefined),
         friend: () => { if (!friend) friendArrives(); }, friendLeave: () => friend?.exit(),
       };
       (extra[what] || main.force[what])?.();

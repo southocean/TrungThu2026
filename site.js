@@ -28,15 +28,17 @@
       .catch(() => { location.href = a.href; });
   }));
   // Out of sight (scrolled away, or under the admin Log): the embedded slideshow stops drawing.
-  let embedSeen = true;
-  const seen = () => frame.contentWindow?.TTslides?.visible?.(embedSeen && !document.documentElement.classList.contains('how-open'));
+  // Any of it on screen: it draws. At least 40% on screen: the visitor timeline moves on too.
+  let embedSeen = true, embedProg = true;
+  const seen = () => { const log = document.documentElement.classList.contains('how-open'); frame.contentWindow?.TTslides?.visible?.(embedSeen && !log, embedProg && !log); };
   let checkT = 0;
   const check = force => { // where the embed is, on scroll and resize (a plain position check, no observer to wait on)
     clearTimeout(checkT);
     checkT = setTimeout(() => {
       const r = frame.getBoundingClientRect();
-      const now = r.bottom > 0 && r.top < innerHeight && r.width > 0;
-      if (force === true || now !== embedSeen) { embedSeen = now; seen(); }
+      const shown = r.height ? Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)) / r.height : 0;
+      const now = shown > 0 && r.width > 0, prog = shown >= 0.4 || !!document.fullscreenElement;
+      if (force === true || now !== embedSeen || prog !== embedProg) { embedSeen = now; embedProg = prog; seen(); }
     }, 120);
   };
   addEventListener('scroll', check, { passive: true });

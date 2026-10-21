@@ -137,8 +137,8 @@
   }
 
   const SPEEDS = [1, 10, 60];
-  const SPAWN = [['fly', 'Butterfly'], ['bee', 'Bee'], ['flower', 'Flower'], ['carrot', 'Carrot'], ['friend', 'Friend'], ['friendLeave', 'Friend leaves'], ['rain', 'Rain (40 s)']];
-  let built = false;
+  const SPAWN = [['fly', 'Butterfly'], ['bee', 'Bee'], ['flower', 'Flower'], ['carrot', 'Carrot'], ['mushroom', 'Mushroom'], ['leaf', 'Leaf'], ['friend', 'Friend'], ['friendLeave', 'Friend leaves'], ['rain', 'Rain (40 s)']];
+  let built = null; // which timeline the rail was built for
   function build() {
     panel.innerHTML = `
       <div class="dt-head"><span class="dt-kicker">Admin · meadow</span><button type="button" class="dt-link" id="dt-lock">Lock</button></div>
@@ -147,6 +147,10 @@
       <div class="dt-row">
         <button type="button" class="dt-btn" id="dt-prev" aria-label="Previous milestone">⏮</button>
         <button type="button" class="dt-btn dt-wide" id="dt-next">Next milestone ⏭</button>
+      </div>
+      <div class="dt-row" role="group" aria-label="Timeline">
+        <button type="button" class="dt-btn dt-wide" data-tl="event" aria-pressed="false">Event</button>
+        <button type="button" class="dt-btn dt-wide" data-tl="visit" aria-pressed="false">Visitor (7 min)</button>
       </div>
       <div class="dt-row" role="group" aria-label="Clock speed">
         ${SPEEDS.map(x => `<button type="button" class="dt-btn" data-speed="${x}" aria-pressed="false">${x}×</button>`).join('')}
@@ -173,27 +177,29 @@
     $('dt-guard').onclick = () => { const m = meadow(); if (m) { const r = m.rabbit(); m.guard(r.seen < r.of); render(); } };
     panel.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { meadow()?.setSpeed(Number(b.dataset.speed)); render(); });
     panel.querySelectorAll('[data-force]').forEach(b => b.onclick = () => meadow()?.force(b.dataset.force));
+    panel.querySelectorAll('[data-tl]').forEach(b => b.onclick = () => { meadow()?.useTimeline(b.dataset.tl); render(); });
     $('dt-rail').addEventListener('click', e => {
       const b = e.target.closest('[data-min], [data-jump]');
       if (b) { meadow()?.setClock(Number(b.dataset.min ?? b.dataset.jump)); render(); }
     });
-    built = false;
+    built = null;
   }
 
   function render() {
     const m = meadow();
     if (!m) return;
     const s = m.state();
-    if (!built) { // milestones and the quiet stretch, in clock order
+    if (built !== s.timeline) { // milestones, rains and the quiet stretch of the timeline in use, in order
       const rows = [...(m.rains || []).map(x => ({ min: x.min + 0.001, html: `<button type="button" class="dt-rain" data-jump="${x.min}"><time>${x.at}</time><span>☂ ${esc(x.name)}<small>${Math.round(x.secs)} s${x.grass ? `, grass +${Math.round(x.grass * 100)}%` : ''}</small></span></button>` })),
         ...m.phases.map(p => ({ min: p.min, html: `<button type="button" data-min="${p.min}"><time>${p.at}</time><span>${esc(p.name)}${p.stage ? `<small>Rabbit ${esc(p.stage)}</small>` : ''}</span></button>` })),
         ...m.quiet.map(q => ({ min: q.fromMin, html: `<span class="dt-quiet"><time>${q.from}–${q.to}</time><span>Quiet · ${esc(q.why)}<small>Rabbit ${esc(q.stage)}</small></span></span>` }))]
         .sort((a, b) => a.min - b.min);
       $('dt-rail').innerHTML = rows.map(r => `<li>${r.html}</li>`).join('');
-      built = true;
+      built = s.timeline;
     }
     $('dt-time').textContent = s.time;
-    $('dt-src').textContent = { live: 'Live · Stockholm', visit: 'Visitor timeline', sim: `Simulated · ${s.speed}×` }[s.source];
+    $('dt-src').textContent = { live: 'Live · Stockholm', visit: 'Visitor · watched', sim: `Simulated · ${s.speed}× · ${s.timeline === 'visit' ? 'visitor' : 'event'}` }[s.source];
+    panel.querySelectorAll('[data-tl]').forEach(b => b.setAttribute('aria-pressed', String(s.timeline === b.dataset.tl)));
     $('dt-src').dataset.src = s.source;
     $('dt-now').innerHTML = `<b>${esc(s.phase)}</b>` + (s.next ? ` · next ${s.next.at} ${esc(s.next.name)}` : ' · last milestone') +
       `<br><span>Programme: ${esc(s.programme)}${s.quiet ? ' · quiet' : ''}</span>` +

@@ -260,39 +260,42 @@
   });
 
   // ── Meadow phases ──
-  // The scene grows on the event's clock, so it fits the programme: milestones land while the
-  // slideshow is up and people are mingling, never in the quiet stretch when the room watches
-  // the stage or the projector is taken for Kahoot. On the day from 13:00 (Stockholm time) the
-  // clock is the real time, so pauses, reloads and other screens all agree. Before that, and on any
-  // other day, web visitors get the VISIT timeline: the whole afternoon in about ten minutes of
-  // their own watching time (see VISIT below).
-  // `stage` is how much of the time the rabbit is out: visits of `on` seconds with breaks of `off`
-  // seconds. It ramps up before the quiet stretch, drops right back in it (a rare visit, with
-  // butterflies and the odd bee drifting through meanwhile), and from 15:30, when the grass marks
-  // the new part of the afternoon, ramps up again until it stays.
+  // Two timelines.
+  // EVENT follows the afternoon: on the day from 13:00 it runs on the real Stockholm clock, so
+  // pauses, reloads and other screens all agree. Milestones land while the slideshow is up and people
+  // mingle, never in the quiet stretch when the room watches the stage or the projector is taken for
+  // Kahoot. `stage` is how much of the time the rabbit is out: visits of `on` seconds with breaks of
+  // `off`. It ramps up before the quiet stretch, drops right back in it (a rare visit, with butterflies
+  // and the odd bee drifting through meanwhile), and from 15:30, when the grass marks the new part of
+  // the afternoon, ramps up again until it stays.
+  // VISIT is for web visitors (before 13:00 on the day, and any other day): about seven minutes of
+  // their own watching time, in its own order, busy from the first seconds. Nobody browsing waits
+  // three hours, or even a quiet minute.
   // Specs and reasoning: docs/meadow-plan.html. Each row applies on top of the ones before it.
   const EVENT_DAY = '2026-10-24', TZ = 'Europe/Stockholm';
+  const BASE_TUNE = { // the full baseline, so stepping back undoes later rows
+    flies: 0, flyChance: 0.06, binky: false, flowers: 2, bees: 1, carrots: 1, mushrooms: 3, leafEvery: [12, 24], grassRate: 1,
+    friend: false, share: false, resident: false, friendEvery: [540, 720], friendStay: [60, 100], friendSoon: [20, 45],
+  };
   const PHASES = [
-    { at: '14:00', name: 'Just the rabbit', features: {}, tune: { // full baseline, so stepping back undoes later rows
-      flies: 0, flyChance: 0.06, binky: false, flowers: 2, bees: 1, carrots: 1,
-      friend: false, share: false, resident: false, friendEvery: [540, 720], friendStay: [60, 100] },
-      stage: { on: [60, 90], off: [120, 150] } },
+    { at: '14:00', name: 'Just the rabbit', features: {}, tune: { ...BASE_TUNE }, stage: { on: [60, 90], off: [120, 150] } },
     { at: '14:10', name: 'A butterfly', tune: { flies: 1, binky: true }, stage: { on: [90, 120], off: [90, 120] } },
     { at: '14:15', name: 'A friend visits', tune: { friend: true } },
     { at: '14:25', name: 'More butterflies', tune: { flies: 2, flyChance: 0.12 }, stage: { on: [120, 150], off: [60, 80] } },
     // 14:30–15:30 quiet stretch: see QUIET
     { at: '15:30', name: 'Grass grows in', features: { grass: true }, grass: 0.25, stage: { on: [120, 180], off: [60, 90] } },
     { at: '15:40', name: 'Carrots grow in the ground', features: { growCarrots: true }, stage: { on: [180, 240], off: [40, 60] } },
+    { at: '15:45', name: 'Mushrooms', features: { mushrooms: true } },
     { at: '15:50', name: 'Friends share', tune: { share: true, friendEvery: [360, 540], friendStay: [90, 150] }, stage: { on: [240, 300], off: [30, 45] } },
     { at: '16:00', name: 'First flowers', features: { flowers: true } },
     { at: '16:10', name: 'More flowers', tune: { flowers: 4, carrots: 2 }, stage: 'always' },
+    { at: '16:15', name: 'Autumn leaves', features: { leaves: true } },
     { at: '16:20', name: 'A bee', features: { bees: true } },
     { at: '16:40', name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18, friendEvery: [240, 360] } },
     { at: '16:50', name: 'Friend visits more', tune: { friendEvery: [120, 180], friendStay: [150, 240] } },
     { at: '16:55', name: 'Friend nearly always here', tune: { friendEvery: [40, 70], friendStay: [240, 360] } },
     { at: '17:00', name: 'Fireflies; the friend moves in', features: { fireflies: true }, tune: { fireflies: 8, resident: true } }, // stays for good, its own rabbit
   ];
-  // No milestones here; the rabbit drops back to a rare visit and insects pass by while it's away.
   // Rain: drizzle, rain, a downpour. Each one grows the grass a step (`grass`), so by the end of the
   // heavy rain the meadow is full. Grass follows the clock, so it's right even if a rain wasn't seen.
   const RAINS = [
@@ -302,11 +305,51 @@
     { at: '16:28', secs: 90, level: 1, name: 'Heavy rain', grass: 0.31 },
     { at: '16:52', secs: 45, level: 0.25, name: 'Drizzle', grass: 0 },
   ];
+  // No milestones here; the rabbit drops back to a rare visit and insects pass by while it's away.
   const QUIET = [{ from: '14:30', to: '15:30', why: 'speeches, games, Kahoot', stage: { on: [60, 90], off: [480, 600] } }];
+
+  // The web visitor's seven minutes, in seconds watched. Something new every ten seconds or so at first,
+  // while the meadow is still empty; longer gaps later, once rabbits, insects, leaves and flowers keep it
+  // busy on their own. Grass starts early and grows three times as fast, an early drizzle pushes it on,
+  // and the friend comes round often. The rabbit is simply out the whole time.
+  const VISIT_PHASES = [
+    { t: 0, name: 'Just the rabbit', features: {}, tune: { ...BASE_TUNE, grassRate: 3, leafEvery: [5, 10], friendEvery: [40, 60], friendStay: [35, 55], friendSoon: [2, 5] } },
+    { t: 10, name: 'A butterfly', tune: { flies: 1, flyChance: 0.5, binky: true } },
+    { t: 20, name: 'Grass grows in', features: { grass: true }, grass: 0.3 },
+    { t: 40, name: 'Autumn leaves', features: { leaves: true } },
+    { t: 50, name: 'A friend visits', tune: { friend: true } },
+    { t: 60, name: 'Mushrooms', features: { mushrooms: true } },
+    { t: 70, name: 'More butterflies', tune: { flies: 2, flyChance: 0.25 } },
+    { t: 80, name: 'Carrots grow in the ground', features: { growCarrots: true } },
+    { t: 105, name: 'First flowers', features: { flowers: true } },
+    { t: 120, name: 'Friends share', tune: { share: true, friendEvery: [25, 40], friendStay: [45, 70] } },
+    { t: 135, name: 'More flowers', tune: { flowers: 4, carrots: 2 } },
+    { t: 150, name: 'A bee', features: { bees: true } },
+    { t: 230, name: 'Full meadow', tune: { flowers: 8, flies: 3, bees: 2, flyChance: 0.18 } },
+    { t: 270, name: 'Friend visits more', tune: { friendEvery: [12, 20], friendStay: [60, 90] } },
+    { t: 360, name: 'Friend nearly always here', tune: { friendEvery: [6, 10], friendStay: [90, 120] } },
+    { t: 400, name: 'Fireflies; the friend moves in', features: { fireflies: true }, tune: { fireflies: 8, resident: true } },
+  ];
+  const VISIT_RAINS = [
+    { t: 28, secs: 18, level: 0.25, name: 'Drizzle', grass: 0.15 },
+    { t: 92, secs: 25, level: 0.55, name: 'Rain', grass: 0.2 },
+    { t: 170, secs: 18, level: 0.25, name: 'Drizzle', grass: 0.12 },
+    { t: 195, secs: 30, level: 1, name: 'Heavy rain', grass: 0.23 },
+    { t: 320, secs: 15, level: 0.25, name: 'Drizzle', grass: 0 },
+  ];
+
   const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
-  const fmt = min => { const m = Math.floor(((min % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+  const V0 = 14 * 60; // the visitor timeline runs on its own clock from 14:00, one minute a minute
+  const mss = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
   PHASES.forEach(p => { p.min = toMin(p.at); });
+  RAINS.forEach(x => { x.min = toMin(x.at); });
   QUIET.forEach(q => { q.fromMin = toMin(q.from); q.toMin = toMin(q.to); });
+  VISIT_PHASES.forEach(p => { p.min = V0 + p.t / 60; p.at = mss(p.t); });
+  VISIT_RAINS.forEach(x => { x.min = V0 + x.t / 60; x.at = mss(x.t); });
+  const EVENT = { name: 'event', phases: PHASES, rains: RAINS, quiet: QUIET };
+  const VISIT = { name: 'visit', phases: VISIT_PHASES, rains: VISIT_RAINS, quiet: [] };
+  const fmtClock = min => { const m = Math.floor(((min % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+  const fmt = (min, T = EVENT) => (T === VISIT ? mss(Math.max(0, (min - V0) * 60)) : fmtClock(min));
   const agendaMins = TT.agenda.map(a => ({ min: toMin(a.time), title: a.title.vi }));
 
   const stockholm = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
@@ -320,91 +363,56 @@
   const GUARD_FROM = 13 * 60;
   function guardOn() { const w = wallClock(); return w.day === EVENT_DAY && w.min >= GUARD_FROM; }
 
-  // ── The visitor timeline ──
-  // Someone browsing the site won't stay three hours, so outside the event the afternoon plays in about
-  // ten minutes of their watching time: [seconds watched, event clock]. The quiet stretch is skipped,
-  // the stretches between milestones are short, and each rain gets 25–45 real seconds so it's seen.
-  // Between rows the clock runs straight; after the last row it carries on at real speed.
-  const VISIT = [
-    [0, '14:00'], [30, '14:10'], [60, '14:15'], [95, '14:25'], [110, '14:29.9'],
-    [111, '15:29.9'], [120, '15:30'],                                   // the quiet stretch, skipped
-    [150, '15:36'], [180, '15:36.84'],                                  // drizzle, 30 s
-    [205, '15:40'], [240, '15:50'],
-    [262, '15:54'], [302, '15:55.17'],                                  // rain, 40 s
-    [330, '16:00'],
-    [350, '16:06'], [380, '16:06.84'],                                  // drizzle, 30 s
-    [395, '16:10'], [430, '16:20'],
-    [455, '16:28'], [500, '16:29.5'],                                   // heavy rain, 45 s
-    [525, '16:40'], [550, '16:50'],
-    [560, '16:52'], [585, '16:52.75'],                                  // drizzle, 25 s
-    [600, '16:55'], [620, '17:00'],                                     // fireflies, the friend moves in
-  ].map(([sec, at]) => { const [h, m] = at.split(':').map(Number); return [sec, h * 60 + m]; });
-  const visitMin = sec => {
-    for (let i = 1; i < VISIT.length; i++) {
-      const [s0, m0] = VISIT[i - 1], [s1, m1] = VISIT[i];
-      if (sec <= s1) return m0 + ((sec - s0) / (s1 - s0)) * (m1 - m0);
-    }
-    const [sl, ml] = VISIT[VISIT.length - 1];
-    return ml + (sec - sl) / 60;
-  };
-  const visitSec = min => { // the other way round, for the Log
-    for (let i = 1; i < VISIT.length; i++) {
-      const [s0, m0] = VISIT[i - 1], [s1, m1] = VISIT[i];
-      if (min <= m1) return s0 + ((min - m0) / ((m1 - m0) || 1)) * (s1 - s0);
-    }
-    return VISIT[VISIT.length - 1][0];
-  };
-  // seconds this visitor has watched (slideshow on screen, tab in front); a reload carries on
-  let visitS = 0;
+  // Seconds this visitor has watched: only while the slideshow is properly on screen (on the home page,
+  // at least 40% of the embed in view; the tab in front). Scrolled past, the meadow's growth waits.
+  // A reload carries on; a new visit starts fresh.
+  let visitS = 0, progressing = true;
   try { visitS = Number(sessionStorage.getItem('tt-visit')) || 0; } catch {}
-  const visitorMode = () => !sim && !guardOn();
 
-  // Admin can run a simulated clock (any time, any speed). It lives in sessionStorage so the
-  // home page's dev panel and this slideshow share it, and a reload keeps it.
+  // Admin can run a simulated clock on either timeline (any time, any speed). It lives in
+  // sessionStorage so the home page's dev panel and this slideshow share it, and a reload keeps it.
   const isAdmin = () => { try { return sessionStorage.getItem('tt_admin') === '1'; } catch { return false; } };
-  let sim = null; // { min, speed }
+  let sim = null; // { min, speed, tl: 'event' | 'visit' }
   try { sim = JSON.parse(sessionStorage.getItem('tt-sim')) || null; } catch {}
-  const clockParam = new URLSearchParams(location.search).get('clock'); // QA: slides.html?clock=15:40
-  if (clockParam && /^\d{1,2}:\d{2}$/.test(clockParam)) sim = { min: toMin(clockParam), speed: 1 };
+  const qs = new URLSearchParams(location.search);
+  const clockParam = qs.get('clock'); // QA: slides.html?clock=15:40 (event), ?visit=120 (visitor, seconds)
+  if (clockParam && /^\d{1,2}:\d{2}$/.test(clockParam)) sim = { min: toMin(clockParam), speed: 1, tl: 'event' };
+  if (qs.has('visit') && Number.isFinite(Number(qs.get('visit')))) sim = { min: V0 + Number(qs.get('visit')) / 60, speed: 1, tl: 'visit' };
   const saveSim = () => { try { sim ? sessionStorage.setItem('tt-sim', JSON.stringify(sim)) : sessionStorage.removeItem('tt-sim'); } catch {} };
 
   function clock() {
-    if (sim) return { min: sim.min, source: 'sim', speed: sim.speed };
-    if (guardOn()) return { min: wallClock().min, source: 'live', speed: 1 };
-    return { min: visitMin(visitS), source: 'visit', speed: 1 };
+    if (sim) return { min: sim.min, source: 'sim', speed: sim.speed, T: sim.tl === 'visit' ? VISIT : EVENT };
+    if (guardOn()) return { min: wallClock().min, source: 'live', speed: 1, T: EVENT };
+    return { min: V0 + visitS / 60, source: 'visit', speed: 1, T: VISIT };
   }
+  const tl = () => clock().T;
 
   let phaseKey = '';
-  const phaseAt = min => PHASES.reduce((k, p, i) => (min >= p.min ? i : k), 0);
-  RAINS.forEach(x => { x.min = toMin(x.at); });
+  const phaseAt = (min, T = tl()) => T.phases.reduce((k, p, i) => (min >= p.min ? i : k), 0);
+  const rainAt = (min, T = tl()) => T.rains.find(x => min >= x.min && min < x.min + x.secs / 60) || null;
   let forcedRain = 0; // admin: a spawned rain lasts until this time (performance.now ms)
-  function weatherNow(min = clock().min) {
-    const idx = phaseAt(min);
-    const now = RAINS.find(x => min >= x.min && min < x.min + x.secs / 60);
-    let grass = PHASES.slice(0, idx + 1).reduce((v, p) => (p.grass != null ? p.grass : v), 0);
-    if (grass > 0) for (const x of RAINS) grass += x.grass * Math.min(1, Math.max(0, (min - x.min) / (x.secs / 60)));
+  function weatherNow(min = clock().min, T = tl()) {
+    const idx = phaseAt(min, T), now = rainAt(min, T);
+    let grass = T.phases.slice(0, idx + 1).reduce((v, p) => (p.grass != null ? p.grass : v), 0);
+    if (grass > 0) for (const x of T.rains) grass += x.grass * Math.min(1, Math.max(0, (min - x.min) / (x.secs / 60)));
     const rain = performance.now() < forcedRain ? 0.55 : now ? now.level : 0;
     return { rain, grass: Math.min(1, grass) };
   }
-  const quietAt = min => QUIET.find(q => min >= q.fromMin && min < q.toMin) || null;
+  const quietAt = (min, T = tl()) => T.quiet.find(q => min >= q.fromMin && min < q.toMin) || null;
   function applyPhase() {
-    const min = clock().min, idx = phaseAt(min), quiet = quietAt(min), visit = visitorMode(), key = `${idx}${quiet ? 'q' : ''}${visit ? 'v' : ''}`;
+    const { min, T } = clock(), idx = phaseAt(min, T), quiet = quietAt(min, T), key = `${T.name}${idx}${quiet ? 'q' : ''}`;
     if (key === phaseKey || !window.slideRabbit) return;
     phaseKey = key;
-    const features = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false }, tune = {};
-    for (const p of PHASES.slice(0, idx + 1)) { Object.assign(features, p.features); Object.assign(tune, p.tune); }
+    const features = { grass: false, flowers: false, growCarrots: false, bees: false, fireflies: false, mushrooms: false, leaves: false }, tune = {};
+    for (const p of T.phases.slice(0, idx + 1)) { Object.assign(features, p.features); Object.assign(tune, p.tune); }
     tune.ambient = !!quiet;
-    if (visit) { // ten minutes instead of three hours: the friend comes round about six times as often
-      if (tune.friendEvery) tune.friendEvery = tune.friendEvery.map(x => x / 6);
-      if (tune.friendStay) tune.friendStay = tune.friendStay.map(x => Math.max(30, x / 2));
-    }
     slideRabbit.configure({ features, tune });
   }
   let lastTick = performance.now(), saveIn = 0;
   setInterval(() => {
     const now = performance.now(), dt = now - lastTick;
-    if (document.visibilityState === 'visible' && !document.body.classList.contains('unseen')) {
-      visitS += dt / 1000; // only time the slideshow is actually seen
+    if (!sim && !guardOn() && progressing && document.visibilityState === 'visible') {
+      visitS += dt / 1000; // only time the slideshow is properly seen
       if ((saveIn -= 1) <= 0) { saveIn = 5; try { sessionStorage.setItem('tt-visit', String(Math.round(visitS))); } catch {} }
     }
     if (sim) { sim.min += (dt / 60000) * sim.speed; saveSim(); }
@@ -415,42 +423,56 @@
     if (!hud.hidden) showHud();
   }, 1000);
 
-  // What the dev tools read and drive (the home page's admin panel, and T [ ] here).
+  // What the dev tools read and drive (the home page's admin panel, the Log, and T [ ] here).
+  const stageText = st => (!st ? null : st === 'always' ? 'always out' : `out ${st.on.join('–')} s, away ${st.off.join('–')} s`);
+  const snapWeather = () => window.slideRabbit?.weather({ ...weatherNow(), snap: true }); // a jump shows that time's grass at once
+  const timelineOf = T => ({
+    name: T.name,
+    phases: T.phases.map(p => ({ at: p.at, min: p.min, t: p.t, name: p.name, stage: T === VISIT ? (p.min === V0 ? 'always out' : null) : stageText(p.stage) })),
+    quiet: T.quiet.map(q => ({ ...q, stage: stageText(q.stage) + ', passers-by' })),
+    rains: T.rains.map(({ at, min, t, secs, name, grass, level }) => ({ at, min, t, secs, name, grass, level })),
+    phaseDetail: T.phases.map(({ at, name, features, tune, grass }) => ({ at, name, features: features || {}, tune: tune || {}, grass })),
+  });
   const meadow = {
-    phases: PHASES.map(({ at, min, name, stage }) => ({ at, min, name,
-      stage: !stage ? null : stage === 'always' ? 'always out' : `out ${stage.on.join('–')} s, away ${stage.off.join('–')} s` })),
-    quiet: QUIET.map(q => ({ ...q, stage: `out ${q.stage.on.join('–')} s, away ${q.stage.off.join('–')} s, passers-by` })),
-    fmt,
+    get timeline() { return tl().name; },
+    get phases() { return timelineOf(tl()).phases; },
+    get quiet() { return timelineOf(tl()).quiet; },
+    get rains() { return timelineOf(tl()).rains; },
+    fmt: min => fmt(min, tl()),
     state() {
-      const c = clock(), idx = phaseAt(c.min), q = quietAt(c.min);
+      const c = clock(), T = c.T, idx = phaseAt(c.min, T), q = quietAt(c.min, T);
       const item = agendaMins.reduce((k, a) => (c.min >= a.min ? a : k), null);
-      const w = weatherNow(), rn = RAINS.find(x => c.min >= x.min && c.min < x.min + x.secs / 60);
-      return { ...c, time: fmt(c.min), idx, phase: PHASES[idx].name, next: PHASES[idx + 1] || null, quiet: q || null, programme: item?.title || 'Before the start',
+      const w = weatherNow(c.min, T), rn = rainAt(c.min, T);
+      return { min: c.min, source: c.source, speed: c.speed, timeline: T.name, time: fmt(c.min, T), idx, phase: T.phases[idx].name, next: T.phases[idx + 1] || null, quiet: q || null,
+        programme: T === VISIT ? 'web visitor' : item?.title || 'Before the start',
         rain: w.rain ? (rn ? rn.name : 'Rain (spawned)') : null, grass: Math.round(w.grass * 100) };
     },
-    setClock(min) { sim = { min, speed: sim?.speed || 1 }; saveSim(); applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); }, // a jump shows that time's grass at once
-    step(dir) { // to the next or previous milestone
-      const min = clock().min, idx = phaseAt(min);
-      const to = dir > 0 ? PHASES[idx + 1] : (min - PHASES[idx].min > 0.5 ? PHASES[idx] : PHASES[idx - 1]);
+    setClock(min) { sim = { min, speed: sim?.speed || 1, tl: tl().name }; saveSim(); applyPhase(); snapWeather(); },
+    step(dir) { // to the next or previous milestone on the timeline in use
+      const { min, T } = clock(), P = T.phases, idx = phaseAt(min, T);
+      const to = dir > 0 ? P[idx + 1] : (min - P[idx].min > 0.5 / 60 * (T === VISIT ? 1 : 60) ? P[idx] : P[idx - 1]);
       if (to) this.setClock(to.min);
     },
-    setSpeed(speed) { sim = { min: clock().min, speed }; saveSim(); },
-    live() { sim = null; saveSim(); applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); },
-    visit: { at: min => visitSec(min), get watched() { return visitS; }, reset() { visitS = 0; try { sessionStorage.removeItem('tt-visit'); } catch {} applyPhase(); window.slideRabbit?.weather({ ...weatherNow(), snap: true }); } },
-    rains: RAINS.map(({ at, min, secs, name, grass, level }) => ({ at, min, secs, name, grass, level })),
-    // the whole afternoon at any minute, for the How it works timeline
-    at(min) {
-      const plan = planNow(min), w = weatherNow(min);
-      const out = !plan ? 0 : plan === 'always' ? 1 : (plan.on[0] + plan.on[1]) / (plan.on[0] + plan.on[1] + plan.off[0] + plan.off[1]);
-      const rn = RAINS.find(x => min >= x.min && min < x.min + x.secs / 60);
-      return { grass: w.grass, rain: rn ? rn.level : 0, out, quiet: !!quietAt(min), phase: PHASES[phaseAt(min)].name };
+    setSpeed(speed) { sim = { min: clock().min, speed, tl: tl().name }; saveSim(); },
+    useTimeline(name) { // admin: switch the simulated clock to the event or the visitor timeline
+      if (name === tl().name && sim) return;
+      sim = { min: name === 'visit' ? V0 : PHASES[0].min, speed: sim?.speed || 1, tl: name };
+      saveSim(); applyPhase(); snapWeather();
     },
-    phaseDetail: PHASES.map(({ at, name, features, tune, grass }) => ({ at, name, features: features || {}, tune: tune || {}, grass })),
+    live() { sim = null; saveSim(); applyPhase(); snapWeather(); },
+    // both timelines in full, for the Log
+    event: { ...timelineOf(EVENT),
+      at(min) { // the afternoon at any minute, for the Log's chart
+        const plan = planNow(min, EVENT), w = weatherNow(min, EVENT), rn = rainAt(min, EVENT);
+        const out = !plan ? 0 : plan === 'always' ? 1 : (plan.on[0] + plan.on[1]) / (plan.on[0] + plan.on[1] + plan.off[0] + plan.off[1]);
+        return { grass: w.grass, rain: rn ? rn.level : 0, out, quiet: !!quietAt(min, EVENT), phase: PHASES[phaseAt(min, EVENT)].name };
+      } },
+    visitor: { ...timelineOf(VISIT), get watched() { return visitS; }, grassAt: sec => weatherNow(V0 + sec / 60, VISIT).grass },
     force: what => (what === 'rain' ? (forcedRain = performance.now() + 40000, window.slideRabbit?.weather(weatherNow())) : window.slideRabbit?.force(what)),
     rabbit() {
       const plan = planNow();
       return { on: rabbitOn, seen: seen.size, of: N, guard: guardOn(), waiting: guardOn() && seen.size < N, out, nextIn: turnAt ? Math.max(0, (turnAt - performance.now()) / 1000) : null,
-        plan: plan === 'always' ? 'always out' : `out ${plan.on[0]}–${plan.on[1]} s, away ${plan.off[0]}–${plan.off[1]} s` };
+        plan: stageText(plan) };
     },
     rabbitNow() { if (turnAt) turnAt = 1; stageTick(0); }, // end the current visit or break now
     guard(pass) { seen = new Set(pass ? slides.map((_, i) => i) : []); saveSeen(); stageTick(0); },
@@ -476,17 +498,18 @@
   try { rabbitOn = localStorage.getItem('tt-rabbit') !== 'off'; } catch {}
   let out = false, turnAt = 0, lastPlan = null; // turnAt: when the current visit or break ends (0: not timed yet)
   const secs = ([a, b]) => (a + Math.random() * (b - a)) * 1000;
-  function planNow(min = clock().min) {
-    const q = quietAt(min);
+  function planNow(min = clock().min, T = tl()) {
+    if (T === VISIT) return 'always'; // web visitors: the rabbit is simply out
+    const q = quietAt(min, T);
     if (q) return q.stage;
-    return PHASES.slice(0, phaseAt(min) + 1).reduce((st, p) => p.stage || st, null);
+    return T.phases.slice(0, phaseAt(min, T) + 1).reduce((st, p) => p.stage || st, null);
   }
   function stageTick(dt) {
     if (cur >= 0 && document.visibilityState === 'visible') {
       shownFor += dt;
       if (shownFor >= GUARD_MS && !seen.has(cur)) { seen.add(cur); saveSeen(); }
     } else shownFor = 0;
-    const now = performance.now(), plan = visitorMode() ? 'always' : planNow(); // visitors: always out
+    const now = performance.now(), plan = planNow();
     if (plan !== lastPlan) { // the plan changed (a milestone, the quiet stretch): a long break or visit is cut to fit it
       if (turnAt && plan !== 'always') turnAt = Math.min(turnAt, now + secs(out ? plan.on : plan.off));
       lastPlan = plan;
@@ -515,7 +538,7 @@
   hud.className = 'meadow-hud'; hud.hidden = true;
   document.body.append(hud);
   function showHud() {
-    const s = meadow.state(), src = { live: 'live', visit: `visitor, ${Math.floor(visitS / 60)}:${String(Math.floor(visitS % 60)).padStart(2, '0')} watched`, sim: `simulated ×${s.speed}` }[s.source];
+    const s = meadow.state(), src = { live: 'live', visit: 'visitor, watched', sim: `simulated ×${s.speed}, ${s.timeline}` }[s.source];
     const rb = meadow.rabbit();
     const rab = !rb.on ? 'rabbit off' : rb.waiting ? `rabbit waits: ${rb.seen}/${rb.of} slides seen` :
       `rabbit ${rb.out ? 'out' : 'away'}` + (rb.nextIn != null ? ` ${Math.round(rb.nextIn)} s more` : '');
@@ -528,7 +551,7 @@
     meadow,
     // the home page says when its embed is out of sight (scrolled away, or under the admin Log):
     // then nothing here draws or animates
-    visible(on) { window.slideRabbit?.freeze(!on); document.body.classList.toggle('unseen', !on); },
+    visible(on, progress = on) { window.slideRabbit?.freeze(!on); document.body.classList.toggle('unseen', !on); progressing = progress; },
     setFull(on) { fullFromParent = on; syncFs(); },
     fullscreenStart() { this.setFull(true); if (!reduced) { if (playing) music.sync(true); else setPlay(true); } },
   };

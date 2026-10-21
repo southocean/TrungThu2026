@@ -64,7 +64,7 @@
       states: [
         ['Resting', 'grooms its face · cleans one ear (sometimes then the other) · sniffs · stands up to look around · turns its head to the room (1 in 8 times it waves) · turns round · loafs'],
         ['Moving', 'hops (never more than 6 in a row) · strolls across the floor · binky (a happy twisting jump) · a startled leap away from a bee'],
-        ['Doing', `chases a butterfly · ${chain('dig', 'pull', 'eat')} a carrot · smells a flower · ${chain('sleep', 'stretch')} · sploots flat on its tummy`],
+        ['Doing', `chases a butterfly · ${chain('dig', 'pull', 'eat')} a carrot · nibbles a mushroom · plays catch with a falling leaf · smells a flower · ${chain('sleep', 'stretch')} · sploots flat on its tummy`],
         ['Weather', chain('hunker in the rain', 'shake the water off', 'often a binky')],
         ['On stage', `${chain('hop in from a side', 'live', 'finish what it’s doing', 'hop off the nearer side')}`],
       ] },
@@ -83,6 +83,10 @@
       states: [['In the ground', `${chain('sprout', 'ripen 38 s', 'a rabbit spots it', 'dig', 'pull', 'eat or share')} · faster on wet ground`]] },
     { id: 'grass', dot: '#4f9a5c', name: 'Grass', what: 'Clumps across the whole floor, each needing a grass level to show; each blade a little more.',
       states: [['Level', `${chain('bare', 'a few clumps (15:30)', 'patchy', 'thick', 'full meadow (after the heavy rain)')}`]] },
+    { id: 'shroom', dot: '#c99256', name: 'Mushrooms', what: 'Brown, tan and golden caps in the grass, in season. Only from the grass on (event 15:45, visitors 1:00).',
+      states: [['Life', `${chain('come up (about 20 s)', 'ready', 'a rabbit nibbles it down', 'gone')} · faster on wet ground`]] },
+    { id: 'leaf', dot: '#e8722a', name: 'Autumn leaves', what: 'Maple-ish leaves in orange, red, gold and brown drift down now and then (event 16:15, visitors 0:40).',
+      states: [['Life', `${chain('drift down, swaying and turning', 'lie on the ground', 'fade')} · or land on a rabbit's head or back and ride there until it shakes or hops`]] },
     { id: 'rain', dot: '#bcd4ff', name: 'Rain', what: 'Five showers on the clock. Each grows the grass a step and leaves the ground wet for a few minutes.',
       states: [['Levels', 'drizzle 0.25 · rain 0.55 · heavy 1.0 (grey wash low down) · faint at the top so slides stay readable']] },
     { id: 'firefly', dot: '#e8ff96', name: 'Fireflies', what: 'From 17:00, up to 8.',
@@ -94,6 +98,8 @@
     ['Rabbits', 'Bees', 'Not trusted. Ears back and eyes on it, hops away; one at its face (or waking it) gets a startled high leap and a dash.'],
     ['Rabbits', 'Carrots', 'Dig up on the spot (early) or go for a ripe one they can see (within 260 units).'],
     ['Rabbits', 'Flowers', 'Now and then hop over and smell one.'],
+    ['Rabbits', 'Mushrooms', 'A ready one in sight: hop over and nibble it, bite by bite, until it’s gone.'],
+    ['Rabbits', 'Leaves', 'The catch game: see one coming, hop under it, stand up with eyes on it, jump to bat it. Sometimes it lands on the head (caught) or on the back; it rides there until a shake of the head or the next hop.'],
     ['Rabbits', 'Rain', 'Hunker until it’s over, then shake off with water flying, often a binky.'],
     ['Butterflies, bees', 'Flowers', 'Perch on or park at the middle of the top of a bloom; perched ones sit behind the rabbits like the flower.'],
     ['Rain', 'Insects', 'Everyone leaves; nothing flies until it stops.'],
@@ -104,7 +110,8 @@
     'Time to go (the stage plan says away): hop off.',
     'Rain just stopped: shake off. Raining: hunker.',
     'Friend things: greet, close a big gap, play.',
-    'Food: a dropped carrot nearby, dig one up, a ripe one in sight.',
+    'Food: a dropped carrot nearby, dig one up, a ripe one in sight, a mushroom in sight.',
+    'A leaf drifting down nearby: go and play catch.',
     'Carry on to where it was going.',
     'Chase a butterfly, nap, sploot, binky, smell a flower.',
     'Otherwise: a short hop, a stroll or a rest (with its fidgets).',
@@ -146,18 +153,20 @@
     const s = m.state(), rb = m.rabbit();
     const bugs = w.bugs, flies = bugs.filter(b => b.type === 'fly'), bees = bugs.filter(b => b.type === 'bee');
     const chips = [
-      ['Clock', `${s.time} · ${{ live: 'live, Stockholm', visit: 'visitor timeline', sim: `simulated ${s.speed}×` }[s.source]}`],
+      ['Clock', `${s.time} · ${{ live: 'live, Stockholm', visit: 'visitor, watched', sim: `simulated ${s.speed}×, ${s.timeline}` }[s.source]}`],
       ['Phase', s.phase + (s.quiet ? ' · quiet stretch' : '')],
       ['Jade rabbit', !rb.on ? 'switched off' : rb.waiting ? `waiting, ${rb.seen}/${rb.of} slides seen` : rabbitState(w.main, w.present)],
-      ['Friend', w.friend ? `${rabbitState(w.friend, true)} · ${w.tune.resident ? 'resident' : 'visiting'}` : w.tune.friend ? 'not here' : 'not yet (from 14:15)'],
+      ['Friend', w.friend ? `${rabbitState(w.friend, true)} · ${w.tune.resident ? 'resident' : 'visiting'}` : w.tune.friend ? 'not here' : 'not yet'],
       ['Butterflies', flies.length ? fmtCount(count(flies, b => (b.state === 'sip' ? 'perched' : b.state === 'leave' ? 'leaving' : 'flying'))) : 'none'],
-      ['Bees', bees.length ? fmtCount(count(bees, b => (b.parked ? 'parked' : b.state === 'leave' ? 'leaving' : 'buzzing'))) : w.features.bees ? 'none right now' : 'not yet (16:20)'],
-      ['Flowers', w.features.flowers ? fmtCount(count(w.flowers, flowerStage)) : 'not yet (16:00)'],
+      ['Bees', bees.length ? fmtCount(count(bees, b => (b.parked ? 'parked' : b.state === 'leave' ? 'leaving' : 'buzzing'))) : w.features.bees ? 'none right now' : 'not yet'],
+      ['Flowers', w.features.flowers ? fmtCount(count(w.flowers, flowerStage)) : 'not yet'],
       ['Carrots', w.features.growCarrots ? fmtCount(count(w.planted, c => (c.ripe >= 1 ? 'ripe' : 'growing'))) : 'dug on the spot'],
       ['Grass', `${Math.round(w.grass * 100)}%`],
       ['Rain', w.rain > 0.02 ? `${Math.round(w.rain * 100)}% · ${s.rain || ''}` : 'dry'],
       ['Ground', w.wet > 0.02 ? `wet ${Math.round(w.wet * 100)}%, lush` : 'dry'],
-      ['Fireflies', w.features.fireflies ? `${w.fireflies.length} (${w.fireflies.filter(f => f.on > 0.3).length} glowing)` : 'not yet (17:00)'],
+      ['Mushrooms', w.features.mushrooms ? fmtCount(count(w.shrooms, x => (x.eaten > 0 ? 'being eaten' : x.grow >= 1 ? 'ready' : 'coming up'))) : 'not yet'],
+      ['Leaves', w.features.leaves || w.leaves.length ? fmtCount(count(w.leaves, l => ({ fall: 'falling', ground: 'on the ground', on: 'on a rabbit' }[l.state]))) : 'not yet'],
+      ['Fireflies', w.features.fireflies ? `${w.fireflies.length} (${w.fireflies.filter(f => f.on > 0.3).length} glowing)` : 'not yet'],
     ];
     el.innerHTML = chips.map(([k, v]) => `<div title="${esc(k)}: ${esc(v)}"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join(''); // one line each; the full text is in the tooltip
   }
@@ -167,7 +176,7 @@
   const X = min => PADL + ((min - T0) / (T1 - T0)) * (VW - PADL - PADR);
   const hhmm = min => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`;
   function buildTime() {
-    const m = meadow();
+    const mm = meadow(), m = mm?.event;
     if (!m) { $('how-p-time').innerHTML = '<p class="how-dim">Waiting for the slideshow…</p>'; built.time = false; return; }
     const H = 340, rows = { prog: [18, 52], out: [78, 150], grass: [166, 218], rain: [232, 250], ms: [266, 330] };
     let svg = '';
@@ -205,15 +214,16 @@
 
     const featureText = p => [...Object.entries(p.features).filter(([, v]) => v).map(([k]) => k), ...Object.entries(p.tune).map(([k, v]) => `${k} ${Array.isArray(v) ? v.join('–') : v}`), ...(p.grass != null ? [`grass level ${p.grass}`] : [])].join(' · ');
     $('how-p-time').innerHTML = `
-      <p class="how-lede">Drawn from the slideshow’s own tables (<code>PHASES</code>, <code>QUIET</code>, <code>RAINS</code> in <code>slides.js</code>), so it can’t drift from what runs. The red line is the clock now.</p>
+      <p class="how-lede">Two timelines: the event afternoon (from 13:00 on the day) and a seven-minute one for web visitors. Both are drawn from the slideshow’s own tables in <code>slides.js</code>, so they can’t drift from what runs. The red line is the event clock now.</p>
       <div class="how-chart"><svg viewBox="0 0 ${VW} ${H + 6}" role="img" aria-label="The afternoon from 13:50 to 17:30: programme, quiet stretch 14:30 to 15:30, how much of the time the rabbit is out, grass level, rains and milestones">${svg}</svg></div>
       <ol class="how-key">${m.phases.map(p => `<li><b>${esc(p.at)}</b> ${esc(p.name)}</li>`).join('')}</ol>
       <h3>The clock</h3>
+      <h3>The event afternoon</h3>
       <p>On Saturday 24 October from 13:00 it’s the real time in Stockholm, so a pause, a reload or a second screen never puts the meadow out of step. Admin can run a simulated clock at 1×, 10× or 60× from the panel beside the slideshow; it lives only in that browser tab.</p>
-      <h3>For web visitors: the afternoon in ten minutes</h3>
-      <p>Before 13:00 on the day, and any other day, nobody browsing will stay three hours, so visitors get their own timeline on their own watching time (only while the slideshow is on screen; a reload carries on). The quiet stretch is skipped, the rabbit is always out, the friend comes round six times as often, and each rain gets 25–45 seconds.</p>
-      <div class="how-table"><table><thead><tr><th>Watched</th><th>Event clock</th><th>Milestone</th></tr></thead><tbody>
-        ${[...m.phases.map(p => ({ min: p.min, at: p.at, name: p.name })), ...m.rains.map(r => ({ min: r.min, at: r.at, name: '☂ ' + r.name }))].sort((a, b) => a.min - b.min).map(x => { const sec = Math.round(m.visit.at(x.min)); return `<tr><td class="num">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</td><td>${esc(x.at)}</td><td>${esc(x.name)}</td></tr>`; }).join('')}
+      <h3>For web visitors: seven minutes, busy from the start</h3>
+      <p>Before 13:00 on the day, and any other day, visitors get their own timeline on their own watching time: it only moves while at least 40% of the slideshow is on screen (scrolled past, the growth waits), and a reload carries on. Something new every ten seconds or so at first, while the meadow is empty; longer gaps once it keeps itself busy. The rabbit is out the whole time, grass grows three times as fast, and the friend comes round often.</p>
+      <div class="how-table"><table><thead><tr><th>Watched</th><th>Milestone</th><th>Grass</th></tr></thead><tbody>
+        ${[...mm.visitor.phases.map(p => ({ t: p.t, name: p.name })), ...mm.visitor.rains.map(r => ({ t: r.t, name: `☂ ${r.name} (${r.secs} s)` }))].sort((a, b) => a.t - b.t).map(x => `<tr><td class="num">${Math.floor(x.t / 60)}:${String(x.t % 60).padStart(2, '0')}</td><td>${esc(x.name)}</td><td>${Math.round(mm.visitor.grassAt(x.t) * 100)}%</td></tr>`).join('')}
       </tbody></table></div>
       <h3>Before anything: the guard</h3>
       <p>On the day, from 13:00 (an hour before the start, by the real Stockholm clock), the rabbit stays hidden until every slide has been on screen for 5 s in one go (remembered for the day), so the room sees the slides clean first. Before that, and after the day, there is no guard: anyone opening the site gets the rabbit straight away. Then the stage plan below takes over. The rabbit button in the slideshow (or <kbd>R</kbd>) turns it all off.</p>
@@ -229,6 +239,7 @@
     const m = meadow(); if (!m) return;
     const s = m.state(), x = X(Math.min(T1, Math.max(T0, s.min)));
     const g = $('tl-now'), line = g.querySelector('line'), t = g.querySelector('text');
+    g.style.display = s.timeline === 'event' ? '' : 'none'; // the chart is the event's afternoon
     line.setAttribute('x1', x); line.setAttribute('x2', x);
     t.setAttribute('x', x + 4); t.textContent = s.time;
   }
@@ -276,6 +287,10 @@
       ['Digging', pose('rest', (h) => { h.main.force.dig(); }, 0.8)],
       ['Eating a carrot', pose('rest', (h) => { h.main.force.dig(); }, 3.1)],
       ['Smelling a flower', pose('smell', (h, r) => { h.flowers.push(flowerOf('tulip', r.x + 34 * h.S, 22 * h.S, BLOOM)); })],
+      ['Nibbling a mushroom', pose('nibble', (h, r) => { const m = { x: r.x + 30 * h.S, grow: 1, eaten: 0, size: 1.1, kind: { cap: '#c99256', dark: '#9a6a36', gill: '#f0dcbc', stem: '#f6ead6' }, by: null, byT: 0 }; h.shrooms.push(m); r.shroom = m; r.until = 4; }, 1.6)],
+      ['Watching a falling leaf', pose('rest', (h, r) => { h.dropLeaf(r.x + 18 * h.S); const l = h.leaves.at(-1); r.mode = 'watchLeaf'; r.until = 99; r.leafAim = l; h.hold = () => { l.state = 'fall'; l.y = r.y - 72 * h.S; l.x = r.x + 16 * h.S; l.caught = true; }; }, 1)],
+      ['A leaf on its head', act(null, (h, r) => { h.dropLeaf(r.x); const l = h.leaves.at(-1); h.main.wear(l, 14 * h.S, -48 * h.S); r.leafT = 99; })],
+      ['A leaf on its back', act('loaf', (h, r) => { h.dropLeaf(r.x); const l = h.leaves.at(-1); h.main.wear(l, -14 * h.S, -27 * h.S); r.leafT = 99; })],
       ['Asleep', pose('sleep', null, 3)],
       ['Stretching awake', pose('stretch', (h, r) => { r.until = 1.3; }, 0.65)],
       ['A sploot', pose('sploot')],
@@ -303,6 +318,12 @@
     ['Flowers', 'Five kinds; each sprouts, buds, blooms for about a minute, wilts.', [
       ['The five kinds', h => { ['daisy', 'pink', 'star', 'tulip', 'bell'].forEach((k, i) => h.flowers.push(flowerOf(k, h.W * (0.14 + i * 0.18), 30 * h.S, BLOOM))); }, null, true],
       ['Sprout, bud, bloom, wilting', h => { [3, 12, BLOOM, 15 + 60 + 5].forEach((age, i) => h.flowers.push(flowerOf('pink', h.W * (0.17 + i * 0.22), 30 * h.S, age))); }, null, true],
+    ], 1.6],
+    ['Mushrooms and leaves', 'Autumn: mushrooms come up in the grass; leaves drift down and lie for a while.', [
+      ['Mushrooms coming up', h => { [[0.25, 0.35], [0.5, 0.7], [0.75, 1]].forEach(([x, g], i) => h.shrooms.push({ x: h.W * x, grow: g, eaten: 0, size: 1.15, kind: [{ cap: '#9a5a2e', dark: '#6e3d1c', gill: '#e8d3b0', stem: '#f1e4cc' }, { cap: '#c99256', dark: '#9a6a36', gill: '#f0dcbc', stem: '#f6ead6' }, { cap: '#e6b24a', dark: '#b8822a', gill: '#f6dfa0', stem: '#f8ecd2' }][i], by: null, byT: 0 })); }],
+      ['Half eaten', h => { h.shrooms.push({ x: h.W / 2, grow: 1, eaten: 0.5, size: 1.3, kind: { cap: '#9a5a2e', dark: '#6e3d1c', gill: '#e8d3b0', stem: '#f1e4cc' }, by: null, byT: 0 }); }],
+      ['Leaves falling', h => { [0.2, 0.45, 0.7, 0.88].forEach((x, i) => { h.dropLeaf(h.W * x); const l = h.leaves.at(-1); l.y = 30 + i * 22; l.rot = i * 1.3; }); }],
+      ['Leaves on the ground', h => { h.configure({ features: { grass: true } }); h.weather({ grass: 0.5, snap: true }); [0.2, 0.4, 0.62, 0.8].forEach((x, i) => { h.dropLeaf(h.W * x); const l = h.leaves.at(-1); l.state = 'ground'; l.y = h.soil() - 1 * h.S; l.rot = (i - 1.5) * 0.4; }); }],
     ], 1.6],
     ['Carrots and grass', 'Carrots ripen in the ground; grass fills in with each rain.', [
       ['Carrots growing to ripe', h => { [0.25, 0.6, 1].forEach((k, i) => h.planted.push({ x: h.W * (0.25 + i * 0.25), ripe: k })); }],

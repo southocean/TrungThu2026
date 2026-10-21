@@ -609,6 +609,7 @@ window.mountRabbit = (box, opt = {}) => {
         r.glanceIn = rand(0.8, 3);
         const thing = p && chance(0.35) ? { x: p.r.x, y: p.r.y - 25 * S } : bugs.length && chance(0.5) ? pick(bugs) : null;
         if (thing) { r.lookTX = clamp((thing.x - r.x) * r.face / 50, -1, 1); r.lookTY = clamp((thing.y - (r.y - 30 * S)) / 50, -1, 1); }
+        else if (r.act === 'audience') [r.lookTX, r.lookTY] = chance(0.6) ? [0, 0] : [rand(-0.7, 0.7), rand(-0.5, 0.4)]; // mostly straight at the room
         else [r.lookTX, r.lookTY] = chance(0.4) ? [0, 0] : [rand(-1, 1), rand(-0.8, 0.6)];
       }
       r.lookX = ease(r.lookX, r.lookTX, 10, dt);
@@ -806,13 +807,14 @@ window.mountRabbit = (box, opt = {}) => {
               r.act = a < 0.26 ? 'groom' : a < 0.48 ? 'sniff' : a < 0.66 ? 'rear' : a < 0.8 ? 'audience' : a < 0.9 ? 'turn' : 'loaf';
               r.actT = { groom: rand(1.4, 2.4), sniff: rand(0.8, 1.6), rear: rand(1.2, 2), audience: rand(1.8, 3.2), turn: 0.01, loaf: rand(1.5, 3) }[r.act];
               if (r.act === 'turn') r.face *= -1;
+              if (r.act === 'audience') { r.lookTX = r.lookTY = 0; r.glanceIn = rand(0.8, 1.6); } // first a straight look
             }
           }
           if (r.act === 'groom') { paw = 1; headDown = 0.25 + Math.sin(r.t * 9) * 0.12; earsT = [-0.7, -0.5]; }
           if (r.act === 'sniff') { headDown = 0.75; noseRate = 24; }
           if (r.act === 'rear') { rear = 1; earsT = [0.05, 0.15]; noseRate = 16; }
           if (r.act === 'loaf') { earsT = [-1, -0.85]; }
-          if (r.act === 'audience') { earsT = [0, 0.12]; r.lookTX = 0; r.lookTY = 0; } // turns its face to the room
+          if (r.act === 'audience') { earsT = [0, 0.12]; noseRate = 10; } // turns its head to the room
           // a butterfly right overhead: chin up, eyes up at it
           const hp = headPos(), above = r.act !== 'groom' && bugs.find(b => b.type === 'fly' && Math.abs(b.x - hp.x) < 70 * S && b.y < hp.y - 15 * S && b.y > hp.y - 200 * S);
           if (above) { r.act = r.act === 'audience' ? null : r.act; headDown = -0.6; rear = Math.max(rear, 0.25); earsT = [0.05, 0.15]; r.lookTX = clamp((above.x - r.x) * r.face / 50, -1, 1); r.lookTY = -1; }
@@ -885,7 +887,15 @@ window.mountRabbit = (box, opt = {}) => {
         paw = [paw[0] + (p2[0] - paw[0]) * r.paw, paw[1] + (p2[1] - paw[1]) * r.paw];
       }
       const baseFar = [hx - 6, hy - 8], baseNear = [hx - 3, hy - 9];
-      silhouette([
+      const front = r.toCam > 0.5; // head turned to the room
+      silhouette(front ? [
+        ['e', backFoot, -2 - air * 2, 9 + f * 2 + air * 2, 3.4, air * 0.25],
+        ['c', -22 - f * 4, -17 + f * 7, 5.5],
+        ['c', -8 - f * 2, -14 + f * 5, 12.5 - f * 1.5],
+        ['e', body[0], body[1], 18 + f * 5 + st * 3 + air * 2, 13 - f * 3 + breath - air, ang],
+        ['e', paw[0], paw[1], 4.5, 3],
+        ...frontHeadShapes(hx - 3, hy - 1),
+      ] : [
         ['e', backFoot, -2 - air * 2, 9 + f * 2 + air * 2, 3.4, air * 0.25],
         ['c', -22 - f * 4, -17 + f * 7, 5.5],
         ear(baseFar, r.earA + ang),
@@ -894,45 +904,46 @@ window.mountRabbit = (box, opt = {}) => {
         ['e', paw[0], paw[1], 4.5, 3],
         ['c', hx, hy, 10.5],
         ear(baseNear, r.earB + ang),
-      ], [2, 7]);
+      ], front ? [5, 6] : [2, 7]); // which shapes are ears (for ear colour)
       if (look.spot) { g.fillStyle = look.spot; g.beginPath(); g.ellipse(-6 - f * 2, -20 + f * 6, 8, 5, -0.2, 0, TAU); g.fill(); }
       g.fillStyle = look.shade;
       g.beginPath(); g.ellipse(-6 - f * 2, -8 + f * 4, 12, 6 - f * 2, 0, 0, TAU); g.fill();
+      if (front) { frontHead(hx - 3, hy - 1); return [hx + 10, hy + 2]; }
       g.fillStyle = look.inner; innerEar(baseNear, r.earB + ang);
       face(hx, hy, false);
       return [hx + 10, hy + 2]; // mouth
     }
-    // facing the room (the 'audience' look): sitting up, both ears, both eyes, a little smile
-    function drawFront() {
-      const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; // ear twitches carry over from the profile
-      const breathe = Math.sin(r.t * 2.4) * 0.4;
-      silhouette([
-        ['e', -8, -1.5, 6, 3.2],
-        ['e', 8, -1.5, 6, 3.2],
-        ['e', 0, -14 + breathe * 0.3, 16, 13.5 + breathe],
-        ['e', -5, -5, 3.6, 3],
-        ['e', 5, -5, 3.6, 3],
-        ['e', -4.5 + Math.sin(-0.16 + tw) * 12, -40 - Math.cos(-0.16 + tw) * 12, 4.6, 13.5, -0.16 + tw],
-        ['e', 4.5 + Math.sin(0.16 - tw2) * 12, -40 - Math.cos(0.16 - tw2) * 12, 4.6, 13.5, 0.16 - tw2],
-        ['c', 0, -31, 12],
-      ], [5, 6]);
-      g.fillStyle = look.shade; g.beginPath(); g.ellipse(0, -8, 11, 5, 0, 0, TAU); g.fill();
+    // the head turned to the room (the 'audience' look) on the side-on body: both ears, both eyes
+    // and a little smile, still alive: blinks, small glances, ear twitches, a twitching nose and mouth
+    const frontEars = () => { const tw = (r.earA + 0.45) * 0.6, tw2 = (r.earB + 0.2) * 0.6; return [[-4.5, -0.16 + tw], [4.5, 0.16 - tw2]]; }; // ear twitches carry over
+    // head and ears as shapes, so they go into the body's outline pass and the neck has no seam
+    const frontHeadShapes = (cx, cy) => [
+      ...frontEars().map(([x, a]) => ['e', cx + x + Math.sin(a) * 12, cy - 9 - Math.cos(a) * 12, 4.6, 13.5, a]),
+      ['c', cx, cy, 11.5],
+    ];
+    function frontHead(cx, cy) {
+      const ears = frontEars();
+      g.save(); g.translate(cx, cy);
       g.fillStyle = look.inner;
-      for (const [x, a] of [[-4.5, -0.16 + tw], [4.5, 0.16 - tw2]]) { g.beginPath(); g.ellipse(x + Math.sin(a) * 12.5, -40 - Math.cos(a) * 12.5, 2.1, 9.5, a, 0, TAU); g.fill(); }
-      for (const side of [-1, 1]) { // eyes, straight at the room
-        const ex = side * 4.6, ey = -33;
+      for (const [x, a] of ears) { g.beginPath(); g.ellipse(x + Math.sin(a) * 12.5, -9 - Math.cos(a) * 12.5, 2.1, 9.5, a, 0, TAU); g.fill(); }
+      const lx = r.lookX * 1.2, ly = r.lookY * 1.2; // the eyes still glance about a little
+      for (const side of [-1, 1]) {
+        const ex = side * 4.6, ey = -2;
         if (r.blink > 0.3 || r.eyesShut) {
           g.strokeStyle = '#1b1b2f'; g.lineWidth = 1.6; g.lineCap = 'round';
           g.beginPath(); g.moveTo(ex - 2.2, ey); g.quadraticCurveTo(ex, ey + 1.4, ex + 2.2, ey); g.stroke();
         } else {
-          g.fillStyle = '#1b1b2f'; g.beginPath(); g.arc(ex, ey, 2.6, 0, TAU); g.fill();
-          g.fillStyle = '#fff'; g.beginPath(); g.arc(ex + 0.8, ey - 0.9, 0.85, 0, TAU); g.fill();
+          g.fillStyle = '#1b1b2f'; g.beginPath(); g.arc(ex + lx, ey + ly, 2.6, 0, TAU); g.fill();
+          g.fillStyle = '#fff'; g.beginPath(); g.arc(ex + lx + 0.8, ey + ly - 0.9, 0.85, 0, TAU); g.fill();
         }
-        g.fillStyle = 'rgba(255, 140, 170, .5)'; g.beginPath(); g.ellipse(side * 7.6, -27.5, 2.8, 1.8, 0, 0, TAU); g.fill();
+        g.fillStyle = 'rgba(255, 140, 170, .5)'; g.beginPath(); g.ellipse(side * 7.6, 3.5, 2.8, 1.8, 0, 0, TAU); g.fill();
       }
-      g.fillStyle = '#ff7aa2'; g.beginPath(); g.ellipse(0, -29.5 + Math.sin(r.nose) * 0.3, 1.5, 1.1, 0, 0, TAU); g.fill();
+      const twitch = Math.sin(r.nose) * 0.35; // nose and mouth twitch together
+      g.fillStyle = '#ff7aa2'; g.beginPath(); g.ellipse(0, 1.5 + twitch, 1.5, 1.1, 0, 0, TAU); g.fill();
       g.strokeStyle = '#1b1b2f'; g.lineWidth = 0.9; g.lineCap = 'round'; // a small 'w' smile
-      g.beginPath(); g.moveTo(-2.2, -27.4); g.quadraticCurveTo(-1.1, -26.2, 0, -27.6); g.quadraticCurveTo(1.1, -26.2, 2.2, -27.4); g.stroke();
+      const my = 3.6 + twitch * 0.8, open = Math.max(0, Math.sin(r.nose * 0.5)) * 0.5;
+      g.beginPath(); g.moveTo(-2.2, my); g.quadraticCurveTo(-1.1, my + 1.2 + open, 0, my - 0.2); g.quadraticCurveTo(1.1, my + 1.2 + open, 2.2, my); g.stroke();
+      g.restore();
     }
     // held by the scruff: the pinch is at (0, 0), the body, paws and hind legs hanging down
     function drawHeld() {
@@ -976,7 +987,6 @@ window.mountRabbit = (box, opt = {}) => {
         if (r.tilt) g.rotate(r.tilt);
         if (r.twist) { g.translate(0, -16); g.rotate(r.twist); g.translate(0, 16); }
         if (r.shake) g.rotate(Math.sin(r.shake * 40) * 0.08 * r.shake);
-        if (r.toCam > 0.5) { drawFront(); g.restore(); return; }
         const mouth = drawGround();
         if (carrot?.state === 'mouth') drawCarrot(mouth[0] + 30 * carrot.len + 2, mouth[1] + 1, Math.PI + 0.12, carrot.len, 1);
       }
